@@ -1,0 +1,19 @@
+10-15 11차 회의
+
+=======Lavable로 시제 완성========
+
+https://shared-supper-solution.lovable.app/
+
+
+1. 알레르기 규제 현황 조사
+소비자 안전 표시 사항
+식품의약품안전처 고시 제2026-37호
+https://www.mfds.go.kr/brd/m_211/view.do?Data_stts_gubun=C9999&itm_seq_1=0&itm_seq_2=0&multi_itm_seq=0&page=1&seq=14968&srchTp=0&srchWord=%EC%8B%9D%ED%92%88%EB%93%B1%EC%9D%98+%ED%91%9C%EC%8B%9C%EA%B8%B0
+
+2. Business Model  수정
+   개요 / 핵심활동
+
+3. 서치 및 설계
+신뢰할 수 있는 지식 출처 설계 (알레르기·영양)
+알레르기 지식베이스 검증본 v2.0.xlsx
+국내외 식품 중 알레르기 유발물질 표시 규제 현황.pdf
