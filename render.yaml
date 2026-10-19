@@ -1,0 +1,13 @@
+# Render Blueprint: 온가족 한상 화면(정적 사이트)
+# Render 대시보드 → New → Blueprint 로 이 저장소를 고르면 아래 설정대로 만들어져요.
+services:
+  - type: web
+    name: onfamily-hansang
+    runtime: static
+    buildCommand: echo "빌드 없이 frontend 폴더를 그대로 올려요"
+    staticPublishPath: ./frontend
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
