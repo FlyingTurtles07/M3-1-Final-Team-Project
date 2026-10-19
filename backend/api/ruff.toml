@@ -1,0 +1,6 @@
+line-length = 150
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "B"]
+ignore = ["B008"]   # FastAPI 는 Depends(...) 를 기본값으로 쓰는 것이 정상 문법이에요
