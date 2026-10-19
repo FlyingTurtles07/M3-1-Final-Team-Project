@@ -223,6 +223,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* =====================================================
    * 1) 입력 데이터
@@ -446,7 +447,20 @@
     return res.json();                    // { recipes: [{ recipe, variations }, ...] }
     ---------------------------- */
 
-    await sleep(900);                      // 가짜 대기 시간
+    // 서버(AI 추천 + 안전 검사)에 먼저 물어보고, 안 되면 아래 기본 레시피로 골라요
+    if (window.HansangAPI) {
+      try {
+        var res = await HansangAPI.request('POST', '/api/recipes/recommend', { timeout: 90000, json: {
+          ingredients: req.ingredients, excludeIds: req.excludeIds, excludeTitles: req.excludeTitles || [], count: PICK_COUNT,
+          members: (req.members || []).map(function (m) { return { name: m.name || '', age: m.age || null, allergies: m.allergies || [], conditions: m.conditions || [] }; })
+        } });
+        if (res && Array.isArray(res.recipes)) {
+          lastNoSafe = false;
+          return { recipes: res.recipes.map(function (r) { return { recipe: r, variations: buildVariations(r, req.members) }; }) };
+        }
+      } catch (e) { /* 서버를 못 쓰면 기본 레시피 */ }
+    }
+    await sleep(300);
     // 추천은 가족 조건과 상관없이 냉장고 재료만으로 골라요
     // (가족 알레르기·식사 조건은 고른 레시피의 분기점으로 알려줘요)
     lastNoSafe = false;
@@ -476,7 +490,7 @@
     toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2000);
   }
 
-  var state = { list: [], sel: 0, recipe: null, variations: [], shown: [], retries: 0, loading: false, error: false };
+  var state = { shownTitles: [], list: [], sel: 0, recipe: null, variations: [], shown: [], retries: 0, loading: false, error: false };
   function select(i) {
     state.sel = i;
     state.recipe = state.list[i] ? state.list[i].recipe : null;
@@ -540,13 +554,16 @@
     }
     var r = state.recipe;
     var hits = allergyHits(r, members);
+    // 안전 검사 결과: 서버가 검사했으면 그 결과를, 아니면 알레르기 성분만 확인해요
+    var safeResult = r.safety ? r.safety.result : (hits.length ? 'hold' : 'pass');
     if (r.photo) {
       var dish = el('div', 'dish');
       var img = document.createElement('img');
       img.src = r.photo; img.alt = r.title + ' 완성 사진';
       dish.appendChild(img);
       dish.appendChild(el('span', 'ai-badge', 'AI 생성 예시 이미지'));
-      dish.appendChild(hits.length ? el('span', 'safe-badge warn', '\u26a0 ' + hits.join('\u00b7') + ' 포함 \u00b7 분기점 확인') : el('span', 'safe-badge', '✓ 안전검사 통과'));
+      dish.appendChild(hits.length ? el('span', 'safe-badge warn', '\u26a0 ' + hits.join('\u00b7') + ' 포함 \u00b7 분기점 확인')
+        : (safeResult === 'pass' ? el('span', 'safe-badge', '✓ 안전검사 통과') : el('span', 'safe-badge warn', '\u26a0 식사 조건 확인')));
       box.appendChild(dish);
     }
     box.appendChild(el('p', 'tag', (state.sel + 1) + '번 메뉴 \u00b7 모두 함께 먹는 기본 요리'));
@@ -602,6 +619,10 @@
       var warn = el('p', 'safe-note warn', '\u26a0 가족 알레르기 재료(' + hits.join(', ') + ')가 들어 있는 레시피예요. 분기점에서 꼭 따로 덜어 만들어 주세요.');
       warn.appendChild(el('small', null, '참고용이며 성분표를 꼭 확인하세요'));
       box.appendChild(warn);
+    } else if (safeResult !== 'pass') {
+      var chk = el('p', 'safe-note warn', '\u26a0 가족 식사 조건(당뇨식·저염식·유동식 등) 기준을 넘거나 자동으로 확인하지 못한 재료가 있어요. 분기점 안내대로 덜어서 양념을 줄여 주세요.');
+      chk.appendChild(el('small', null, '참고용이며 성분표를 꼭 확인하세요'));
+      box.appendChild(chk);
     } else {
       // 안전 기준 확인 문구 (세부 검사 결과는 화면에 보여주지 않아요)
       var safe = el('p', 'safe-note', '✓ 알레르기·당뇨식·저염식 안전검사를 통과한 레시피예요');
@@ -660,19 +681,19 @@
     state.loading = true; state.error = false;
     render();
     try {
-      var req = { ingredients: INGREDIENTS, excludeIds: state.shown, members: members };
+      var req = { ingredients: INGREDIENTS, excludeIds: state.shown, excludeTitles: state.shownTitles, members: members };
       var data = await fetchRecipes(req);
       if (data && !data.recipes.length && state.shown.length) {
         // 새 메뉴를 다 보여줬으면 처음부터 다시 보여줘요
         show('준비된 메뉴를 모두 보여드려서 처음부터 다시 보여드려요');
-        state.shown = [];
-        req.excludeIds = [];
+        state.shown = []; state.shownTitles = [];
+        req.excludeIds = []; req.excludeTitles = [];
         data = await fetchRecipes(req);
       }
       if (data && data.recipes.length) {
         state.list = data.recipes;
         select(0);
-        data.recipes.forEach(function (x) { state.shown.push(x.recipe.id); });
+        data.recipes.forEach(function (x) { state.shown.push(x.recipe.id); state.shownTitles.push(x.recipe.title); });
         if (isRetry) state.retries++;           // 성공해서 새 메뉴를 받았을 때만 횟수를 세요
       } else {
         state.list = []; select(0);

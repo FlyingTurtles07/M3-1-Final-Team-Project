@@ -1,13 +1,43 @@
-# Render Blueprint: 온가족 한상 화면(정적 사이트)
+# Render Blueprint: 온가족 한상 (화면 + 백엔드 + DB)
 # Render 대시보드 → New → Blueprint 로 이 저장소를 고르면 아래 설정대로 만들어져요.
 services:
+  # 화면 (정적 사이트)
   - type: web
-    name: onfamily-hansang
+    name: M3-1-Final-Team-Project
     runtime: static
-    buildCommand: echo "빌드 없이 frontend 폴더를 그대로 올려요"
+    buildCommand: ""
     staticPublishPath: ./frontend
     pullRequestPreviewsEnabled: false
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
+
+  # 백엔드 (FastAPI)
+  - type: web
+    name: onfamily-hansang-api
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        fromDatabase:
+          name: onfamily-hansang-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: OPENAI_API_KEY      # 대시보드에서 직접 넣어요 (비워 두면 예시 레시피·예시 재료 인식)
+        sync: false
+      - key: MFDS_API_KEY        # 공공데이터포털 식품영양성분DB 키 (비워 두면 기본 수치로 검사)
+        sync: false
+
+databases:
+  - name: onfamily-hansang-db
+    region: singapore
+    plan: free
+    databaseName: hansang
+    user: hansang

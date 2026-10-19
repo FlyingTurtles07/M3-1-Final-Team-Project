@@ -275,6 +275,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* =====================================================
    * 1) 설정 / 검색 규칙
@@ -321,6 +322,19 @@
     if (!res.ok) throw new Error('posts api failed: ' + res.status);
     return res.json();     // { posts: [...], total: 12 }
     ---------------------------- */
+    if (window.HansangAPI) {
+      try {
+        var params = new URLSearchParams({ text: req.text, tags: req.tags.join(','), offset: req.offset, limit: req.limit });
+        var res = await HansangAPI.request('GET', '/api/posts?' + params, { timeout: 70000 });
+        // 서버에 못 올리고 이 기기에만 저장한 내 글도 맨 앞에 함께 보여줘요
+        if (req.offset === 0) {
+          var local = [];
+          try { local = JSON.parse(localStorage.getItem('sharedPosts') || '[]') || []; } catch (e) { local = []; }
+          if (local.length && !req.text && !req.tags.length) { res.posts = local.concat(res.posts); res.total += local.length; }
+        }
+        return res;
+      } catch (e) { /* 서버를 못 쓰면 이 기기에 있는 예시 글로 보여줘요 */ }
+    }
     await sleep(500);
     var needSafe = req.tags.some(function (t) { return /제외$/.test(t); });   // 알레르기 검색은 확인된 글만
     var text = req.text.toLowerCase();
@@ -344,8 +358,16 @@
     var copy = list.slice(req.offset, req.offset + req.limit).map(function (p) { return JSON.parse(JSON.stringify(p)); });
     return { posts: copy, total: list.length };
   }
-  async function apiLike(id, liked) { /* await fetch('.../api/posts/' + id + '/like', { method: 'POST', body: JSON.stringify({ liked }) }); */ await sleep(250); }
-  async function apiReport(id, reason) { /* await fetch('.../api/posts/' + id + '/report', { method: 'POST', body: JSON.stringify({ reason }) }); */ await sleep(400); }
+  function isServerPost(id) { return typeof id === 'number'; }   // 서버 글은 숫자 번호, 이 기기에만 있는 글은 'my-…'
+  async function apiLike(id, liked) {
+    if (!window.HansangAPI || !isServerPost(id)) { await sleep(150); return; }
+    if (!HansangAPI.isLoggedIn()) throw { status: 401, message: '로그인하면 좋아요를 남길 수 있어요' };
+    await HansangAPI.request('POST', '/api/posts/' + id + '/like', { json: { liked: liked } });
+  }
+  async function apiReport(id, reason) {
+    if (!window.HansangAPI || !isServerPost(id)) { await sleep(300); return; }
+    await HansangAPI.request('POST', '/api/posts/' + id + '/report', { json: { reason: reason } });
+  }
 
   /* =====================================================
    * 3) 상태
@@ -552,11 +574,14 @@
 
   /* 내 게시물 삭제
      실제 서비스: DELETE /api/posts/:id (본인 글만 지울 수 있게 서버에서도 확인해요) */
-  function deletePost(id) {
+  async function deletePost(id) {
     var p = state.posts.filter(function (x) { return x.id === id; })[0];
     if (!p || !p.mine) return;
     if (!confirm('‘' + p.title + '’ 게시물을 삭제할까요?\n사진·코멘트·레시피가 모두 지워지고 되돌릴 수 없어요.')) return;
-    try {
+    if (isServerPost(id)) {
+      try { await HansangAPI.request('DELETE', '/api/posts/' + id); }
+      catch (e) { show(e && e.message ? e.message : '삭제하지 못했어요. 다시 눌러 주세요'); return; }
+    } else try {
       var mine = JSON.parse(localStorage.getItem('sharedPosts') || '[]') || [];
       localStorage.setItem('sharedPosts', JSON.stringify(mine.filter(function (x) { return x.id !== id; })));
     } catch (e) { show('삭제하지 못했어요. 다시 눌러 주세요'); return; }
@@ -627,7 +652,7 @@
     try { await apiLike(id, p.liked); }
     catch (e) {
       p.liked = !p.liked; p.likes += p.liked ? 1 : -1;     // 실패하면 되돌려요
-      show('좋아요를 저장하지 못했어요');
+      show(e && e.status === 401 ? '로그인하면 좋아요를 남길 수 있어요' : '좋아요를 저장하지 못했어요');
     } finally { delete state.pendingLike[id]; render(id); }
   }
 

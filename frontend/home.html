@@ -265,6 +265,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* =====================================================
    * 1) 설정
@@ -436,12 +437,23 @@
       var found = await res.json();          // 예: { ingredients: ['두부', '애호박', ...] }
       sessionStorage.setItem('foundIngredients', JSON.stringify(found.ingredients));
       ---------------------------- */
-      await sleep(900);                      // 가짜 대기 시간
-      window.pendingPhotos = { fridge: photos.fridge, receipt: photos.receipt };   // 확인용
-      // 사진 인식 연동 전 예시 결과 (사진 원본은 넘기지 않고 재료 이름만 넘겨요)
-      var draft = { source: 'photo', items: [], dropped: [] };
-      if (photos.fridge) { draft.items.push('두부', '애호박', '달걀', '대파', '당근'); draft.suspect = ['새우']; draft.dropped.push('케첩'); }
-      if (photos.receipt) { draft.items.push('양파', '소고기', '시금치'); draft.dropped.push('햄', '간장'); }
+      // 서버(AI)가 사진에서 재료 이름을 찾아요. 사진은 서버에 저장하지 않아요.
+      var draft = null;
+      if (window.HansangAPI) {
+        try {
+          var fd = new FormData();
+          if (photos.fridge) fd.append('fridge', photos.fridge, 'fridge.jpg');
+          if (photos.receipt) fd.append('receipt', photos.receipt, 'receipt.jpg');
+          var found = await HansangAPI.request('POST', '/api/ingredients/analyze', { form: fd, timeout: 90000 });
+          draft = { source: 'photo', items: found.items || [], suspect: found.suspect || [], dropped: found.dropped || [] };
+        } catch (err) { /* 서버를 못 쓰면 아래 예시 결과로 */ }
+      }
+      if (!draft) {
+        await sleep(600);
+        draft = { source: 'photo', items: [], dropped: [] };
+        if (photos.fridge) { draft.items.push('두부', '애호박', '달걀', '대파', '당근'); draft.suspect = ['새우']; draft.dropped.push('케첩'); }
+        if (photos.receipt) { draft.items.push('양파', '소고기', '시금치'); draft.dropped.push('햄', '간장'); }
+      }
       try { localStorage.setItem('ingredientDraft', JSON.stringify(draft)); } catch (e) { /* 건너뜀 */ }
       go('ingredientCheck');
     } catch (e) {

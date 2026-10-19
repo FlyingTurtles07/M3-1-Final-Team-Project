@@ -186,6 +186,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* =====================================================
    * 1) 앞 화면에서 넘어온 데이터
@@ -337,8 +338,14 @@
       });
       if (!res.ok) throw new Error('feedback api failed: ' + res.status);
       ---------------------------- */
-      await sleep(700);                 // 가짜 대기 시간
-      window.lastFeedback = payload;    // 확인용 (서버 연동 후에는 필요 없어요)
+      if (window.HansangAPI) {
+        var answersObj = {};
+        payload.results.forEach(function (x) { answersObj[x.name] = x.result; });
+        await HansangAPI.request('POST', '/api/feedback', { json: { recipeId: String(payload.recipeId || ''), recipeTitle: payload.recipeTitle, answers: answersObj, comment: payload.comment } });
+      } else {
+        await sleep(700);
+      }
+      window.lastFeedback = payload;
 
       sent = true;
       show('의견을 보냈어요. 다음 추천에 반영할게요');
@@ -366,9 +373,15 @@
     b.classList.toggle('done', saved);
     b.setAttribute('aria-disabled', saved ? 'true' : 'false');
   }
-  $('keepBtn').addEventListener('click', function () {
+  $('keepBtn').addEventListener('click', async function () {
     if (isSaved()) { show('이미 보관함에 있어요'); return; }
-    var r = menu.recipe, list = loadSaved() || [];
+    // 로그인했으면 서버 보관함을 먼저 불러와서 그 뒤에 더해요 (다른 기기에서 저장한 요리도 지키려고)
+    var server = window.HansangAPI ? await HansangAPI.loadDoc('saved') : null;
+    var r = menu.recipe, list = Array.isArray(server) ? server : (loadSaved() || []);
+    if (list.some(function (x) { return x.recipeId === r.id || x.title === r.title; })) {
+      try { localStorage.setItem(KEY_SAVED, JSON.stringify(list)); } catch (e) {}
+      renderKeep(); show('이미 보관함에 있어요'); return;
+    }
     list.unshift({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), recipeId: r.id, title: r.title, photo: r.photo || null,
       minutes: r.minutes || null, servings: r.servings || null, collection: null, note: '', tags: [],
@@ -377,6 +390,7 @@
     /* 실제 서비스에서는 서버에 저장해요: POST /api/saved-recipes */
     try { localStorage.setItem(KEY_SAVED, JSON.stringify(list)); show('보관함에 저장했어요'); }
     catch (e) { show('저장하지 못했어요. 다시 눌러 주세요'); }
+    if (window.HansangAPI) HansangAPI.saveDoc('saved', list);
     renderKeep();
   });
   renderKeep();

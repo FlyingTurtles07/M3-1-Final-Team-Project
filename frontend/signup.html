@@ -302,6 +302,7 @@
   <button type="button" id="termAgree">동의하고 닫기</button>
 </dialog>
 
+<script src="api.js"></script>
 <script>
 (() => {
   /* ═══════════════ 자주 묻는 질문 데이터 ═══════════════
@@ -619,14 +620,22 @@
      → consents 테이블에는 RLS로 "본인 행만 읽기/쓰기" 정책을 꼭 걸어 주세요.
 
      ⚠ 비밀번호는 절대 직접 테이블에 저장하지 마세요. Supabase Auth가 암호화해서 관리해요. */
-  async function signUpDemo({ email }) {
-    await new Promise(r => setTimeout(r, 900));      // 네트워크 지연 흉내
-    if (email.toLowerCase() === 'test@test.com') {   // 데모: 이미 가입된 이메일
-      const e = new Error('duplicate'); e.code = 'duplicate'; throw e;
+  // 서버에 회원가입 요청 (비밀번호는 서버에서 해시로만 저장해요)
+  async function signUp({ name, email, password, marketing }) {
+    try {
+      const res = await HansangAPI.request('POST', '/api/auth/signup', { json: {
+        name, email, password,
+        consents: { terms: $('t1').checked, privacy: $('t2').checked, health: $('t3').checked, marketing, age14: $('t5').checked }
+      } });
+      HansangAPI.setSession(res);
+      try { localStorage.setItem('consents', JSON.stringify({ health: $('t3').checked, at: Date.now() })); } catch {}
+      return res;
+    } catch (err) {
+      const e = new Error(err.message || 'failed');
+      e.code = err.status === 409 ? 'duplicate' : (err.status === 0 ? 'offline' : 'server');
+      e.detail = err.message;
+      throw e;
     }
-    if (!navigator.onLine) { const e = new Error('offline'); e.code = 'offline'; throw e; }
-    try { localStorage.setItem('onfamily_demo_user', JSON.stringify({ email, at: Date.now() })); localStorage.setItem('onfamily_session', JSON.stringify({ email, at: Date.now() })); } catch {}
-    return { ok: true };
   }
 
   $('form').addEventListener('submit', async e => {
@@ -640,7 +649,7 @@
     submitBtn.textContent = '가입하는 중…';
     $('formError').textContent = '';
     try {
-      await signUpDemo({
+      await signUp({
         name: fields.name.el.value.trim(),
         email: fields.email.el.value.trim(),
         password: fields.pw.el.value,
@@ -659,9 +668,9 @@
         fields.email.msg.textContent = '이미 가입된 이메일이에요. 로그인하거나 다른 이메일을 써 주세요.';
         fields.email.el.focus();
       } else if (err.code === 'offline') {
-        $('formError').textContent = '인터넷 연결이 끊겼어요. 연결을 확인한 뒤 다시 눌러 주세요.';
+        $('formError').textContent = '서버에 연결하지 못했어요. 잠시 후 다시 눌러 주세요. (처음 접속은 1분쯤 걸릴 수 있어요)';
       } else {
-        $('formError').textContent = '가입하지 못했어요. 잠시 후 다시 눌러 주세요.';
+        $('formError').textContent = err.detail || '가입하지 못했어요. 잠시 후 다시 눌러 주세요.';
       }
       submitBtn.textContent = '가입하기';
       updateSubmit();

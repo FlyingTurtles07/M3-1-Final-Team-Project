@@ -292,6 +292,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* =====================================================
    * 1) 저장소
@@ -340,6 +341,7 @@
     try {
       localStorage.setItem(KEY_ITEMS, JSON.stringify(state.items));
       localStorage.setItem(KEY_COLS, JSON.stringify(state.cols));
+      if (window.HansangAPI) HansangAPI.saveDoc('saved', state.items);   // 서버에도 저장 (로그인했을 때)
     } catch (e) {
       if (!storageWarned) { storageWarned = true; show('이 환경에서는 저장 내용이 유지되지 않아요'); }
     }
@@ -660,6 +662,19 @@
 
   /* ---------- 시작 ---------- */
   render();
+
+  // 로그인했으면 서버 보관함을 불러와요 (서버에 아직 없으면 이 기기 내용을 올려요)
+  if (window.HansangAPI && HansangAPI.isLoggedIn()) {
+    HansangAPI.loadDoc('saved').then(function (v) {
+      if (Array.isArray(v)) {
+        state.items = v;
+        try { localStorage.setItem(KEY_ITEMS, JSON.stringify(v)); } catch (e) {}
+        render();
+      } else {
+        HansangAPI.saveDoc('saved', state.items);
+      }
+    });
+  }
 </script>
 <script src="nav.js"></script>
 </body>

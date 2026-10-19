@@ -383,6 +383,7 @@
   </div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* ---------- 데이터 ---------- */
   var AGE = ['영유아', '어린이', '청소년', '성인', '어르신'];
@@ -652,6 +653,7 @@
         if (!confirm('‘' + m.name + '’ 님을 삭제할까요? 입력한 건강 정보도 함께 삭제돼요.')) return;
         members.splice(i, 1);
         try { localStorage.setItem('familyMembers', JSON.stringify(members)); } catch (e) {}
+        if (window.HansangAPI) HansangAPI.saveDoc('family', members);   // 서버에도 저장 (로그인했을 때)
         renderMembers();
         show('‘' + m.name + '’ 님과 건강 정보를 삭제했어요');
       });
@@ -662,6 +664,20 @@
 
   function renderAll() { renderMembers(); renderSlot(); renderAge(); renderAllergy(); renderHealth(); renderNote(); }
   renderAll();
+
+  // 로그인했으면 서버에 저장한 가족을 불러와요 (서버에 아직 없으면 이 기기 내용을 올려요)
+  if (window.HansangAPI && HansangAPI.isLoggedIn()) {
+    HansangAPI.loadDoc('family').then(function (v) {
+      if (Array.isArray(v)) {
+        members.length = 0;
+        v.forEach(function (m) { members.push(m); });
+        try { localStorage.setItem('familyMembers', JSON.stringify(members)); } catch (e) {}
+        renderMembers();
+      } else if (members.length) {
+        HansangAPI.saveDoc('family', members);
+      }
+    });
+  }
 
   /* ---------- 이름 입력 ---------- */
   $('name').addEventListener('input', function (e) {
@@ -711,6 +727,7 @@
     members.push(member);
     // 다른 화면(오늘의 한상, 식사 후 의견)에서 가족 목록을 쓸 수 있게 저장해요
     try { localStorage.setItem('familyMembers', JSON.stringify(members)); } catch (e) { /* 저장 불가 환경이면 건너뜀 */ }
+    if (window.HansangAPI) HansangAPI.saveDoc('family', members);   // 서버에도 저장 (로그인했을 때)
 
     /* 실제 서비스에서는 여기서 서버로 보내요 (예: FastAPI + DB)
     fetch('https://YOUR-BACKEND/api/family-members', {

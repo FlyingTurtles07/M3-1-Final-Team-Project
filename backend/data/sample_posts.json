@@ -1,0 +1,395 @@
+[
+ {
+  "id": 1,
+  "title": "현미 두부 비빔밥",
+  "comment": "오늘은 가족 생일, 특별식으로 차렸어요",
+  "autoTags": [
+   "당 관리 참고"
+  ],
+  "userTags": [
+   "가족생일",
+   "특별식"
+  ],
+  "likes": 24,
+  "liked": true,
+  "verified": true,
+  "photoUrl": "food/tofu-bibimbap.jpg",
+  "aiImage": true,
+  "recipe": {
+   "minutes": 25,
+   "servings": 4,
+   "ingredients": [
+    "현미",
+    "두부",
+    "애호박",
+    "당근"
+   ],
+   "steps": [
+    "현미밥을 지어 식혀요.",
+    "두부와 채소를 볶아 밥 위에 올려요.",
+    "참기름과 깨를 약간 넣어 비벼요."
+   ]
+  }
+ },
+ {
+  "id": 2,
+  "title": "닭가슴살 채소 볶음",
+  "comment": "퇴근하고 20분 만에 완성했어요",
+  "autoTags": [
+   "당 관리 참고"
+  ],
+  "userTags": [
+   "간단요리"
+  ],
+  "likes": 9,
+  "liked": false,
+  "verified": true,
+  "photoUrl": "food/chicken-veggie-stirfry.jpg",
+  "aiImage": true,
+  "recipe": {
+   "minutes": 20,
+   "servings": 4,
+   "ingredients": [
+    "닭가슴살",
+    "양파",
+    "당근",
+    "브로콜리"
+   ],
+   "steps": [
+    "닭가슴살을 한입 크기로 썰어요.",
+    "채소와 함께 센 불에 볶아요.",
+    "소금과 후추로 간해요."
+   ]
+  }
+ },
+ {
+  "id": 3,
+  "title": "두부 애호박 달걀찜",
+  "comment": "아이가 처음으로 애호박을 다 먹었어요",
+  "autoTags": [
+   "견과류 제외",
+   "우유 제외"
+  ],
+  "userTags": [
+   "아이식사"
+  ],
+  "likes": 18,
+  "liked": false,
+  "verified": true,
+  "photoUrl": "food/tofu-zucchini-egg.jpg",
+  "aiImage": true,
+  "recipe": {
+   "ing": [
+    [
+     "두부",
+     "1모",
+     "300g"
+    ],
+    [
+     "애호박",
+     "½개",
+     "150g"
+    ],
+    [
+     "달걀",
+     "4개",
+     "200g"
+    ],
+    [
+     "정수물",
+     "½컵",
+     "100g"
+    ]
+   ],
+   "sauce": {
+    "label": "양념",
+    "items": [
+     [
+      "소금",
+      "⅓작은술",
+      "2g"
+     ]
+    ]
+   },
+   "minutes": 25,
+   "servings": 4,
+   "ingredients": [
+    "두부",
+    "애호박",
+    "달걀"
+   ],
+   "steps": [
+    "두부는 으깨고 애호박은 잘게 썰어요.",
+    "달걀을 풀어 정수물, 두부·애호박과 섞어요.",
+    "소금으로 간해요.",
+    "그릇에 담아 중불에서 12분 쪄요."
+   ]
+  }
+ },
+ {
+  "id": 4,
+  "title": "연어 구이와 현미밥",
+  "comment": "할아버지 생신 상으로 담백하게 준비했어요",
+  "autoTags": [
+   "당 관리 참고",
+   "저염 참고"
+  ],
+  "userTags": [
+   "가족생일",
+   "생신상"
+  ],
+  "likes": 15,
+  "liked": false,
+  "verified": true,
+  "photoUrl": "food/salmon-brown-rice.jpg",
+  "aiImage": true,
+  "recipe": {
+   "minutes": 30,
+   "servings": 4,
+   "ingredients": [
+    "연어",
+    "현미",
+    "브로콜리"
+   ],
+   "steps": [
+    "현미밥을 지어요.",
+    "연어를 앞뒤로 노릇하게 구워요.",
+    "브로콜리를 데쳐 곁들여요."
+   ]
+  }
+ },
+ {
+  "id": 5,
+  "title": "소고기 무국",
+  "comment": "간을 약하게 해서 부모님과 함께 먹었어요",
+  "autoTags": [
+   "저염 참고"
+  ],
+  "userTags": [
+   "어르신식"
+  ],
+  "likes": 12,
+  "liked": false,
+  "verified": true,
+  "photoUrl": "food/beef-radish-soup.jpg",
+  "aiImage": true,
+  "recipe": {
+   "ing": [
+    [
+     "소고기 국거리",
+     "1컵",
+     "200g"
+    ],
+    [
+     "무",
+     "약 1/5개",
+     "300g"
+    ],
+    [
+     "대파",
+     "½대",
+     "50g"
+    ],
+    [
+     "정수물",
+     "5컵",
+     "1,000g"
+    ]
+   ],
+   "sauce": {
+    "label": "양념",
+    "items": [
+     [
+      "소금",
+      "½작은술",
+      "3g"
+     ],
+     [
+      "간마늘",
+      "½큰술",
+      "10g"
+     ],
+     [
+      "참기름",
+      "1큰술",
+      "7g"
+     ]
+    ]
+   },
+   "minutes": 35,
+   "servings": 4,
+   "ingredients": [
+    "소고기",
+    "무",
+    "대파"
+   ],
+   "steps": [
+    "냄비에 소고기와 참기름을 넣고 볶아요.",
+    "나박 썬 무를 넣고 함께 볶아요.",
+    "정수물을 붓고 20분 끓이며 거품을 걷어요.",
+    "소금·간마늘로 간하고 대파를 넣어요."
+   ]
+  }
+ },
+ {
+  "id": 6,
+  "title": "채소 오믈렛",
+  "comment": "아침 대신 간단하게 먹었어요",
+  "autoTags": [
+   "당 관리 참고",
+   "우유 제외"
+  ],
+  "userTags": [
+   "브런치"
+  ],
+  "likes": 7,
+  "liked": false,
+  "verified": false,
+  "photoUrl": "food/veggie-omelet.jpg",
+  "aiImage": true,
+  "recipe": {
+   "ing": [
+    [
+     "달걀",
+     "6개",
+     "300g"
+    ],
+    [
+     "양파",
+     "⅓개",
+     "70g"
+    ],
+    [
+     "당근",
+     "⅓개",
+     "60g"
+    ],
+    [
+     "시금치",
+     "⅓단",
+     "70g"
+    ]
+   ],
+   "sauce": {
+    "label": "양념",
+    "items": [
+     [
+      "소금",
+      "⅓작은술",
+      "2g"
+     ],
+     [
+      "식용유",
+      "1큰술",
+      "10g"
+     ]
+    ]
+   },
+   "minutes": 15,
+   "servings": 4,
+   "ingredients": [
+    "달걀",
+    "양파",
+    "당근",
+    "시금치"
+   ],
+   "steps": [
+    "양파·당근·시금치를 잘게 다져 볶아요.",
+    "달걀을 풀어 소금으로 간해요.",
+    "식용유를 두른 팬에 달걀을 붓고 볶은 채소를 올려 반으로 접어 익혀요."
+   ]
+  }
+ },
+ {
+  "id": 7,
+  "title": "닭죽",
+  "comment": "막내 생일에 부드럽게 끓였어요",
+  "autoTags": [
+   "견과류 제외",
+   "우유 제외"
+  ],
+  "userTags": [
+   "가족생일"
+  ],
+  "likes": 21,
+  "liked": false,
+  "verified": true,
+  "photoUrl": "food/chicken-porridge.jpg",
+  "aiImage": true,
+  "recipe": {
+   "ing": [
+    [
+     "쌀",
+     "1컵",
+     "160g"
+    ],
+    [
+     "닭가슴살",
+     "2쪽",
+     "200g"
+    ],
+    [
+     "당근",
+     "⅓개",
+     "60g"
+    ],
+    [
+     "애호박",
+     "⅓개",
+     "100g"
+    ],
+    [
+     "정수물",
+     "6컵",
+     "1,200g"
+    ]
+   ],
+   "sauce": {
+    "label": "양념",
+    "items": [
+     [
+      "소금",
+      "½작은술",
+      "3g"
+     ],
+     [
+      "참기름",
+      "1큰술",
+      "7g"
+     ]
+    ]
+   },
+   "minutes": 40,
+   "servings": 4,
+   "ingredients": [
+    "닭가슴살",
+    "쌀",
+    "당근",
+    "애호박"
+   ],
+   "steps": [
+    "쌀을 30분 불려요.",
+    "닭가슴살을 삶아 잘게 찢고, 당근·애호박은 잘게 다져요.",
+    "참기름에 쌀과 채소를 볶다가 닭 삶은 물(정수물)을 붓고 20분 끓여요.",
+    "닭고기를 넣고 소금으로 간해요."
+   ]
+  }
+ },
+ {
+  "id": 8,
+  "title": "두부 조림 도시락",
+  "comment": "가족 소풍 도시락으로 쌌어요",
+  "autoTags": [
+   "체중 관리 참고"
+  ],
+  "userTags": [
+   "도시락",
+   "소풍"
+  ],
+  "likes": 5,
+  "liked": false,
+  "verified": true,
+  "photoUrl": "food/tofu-lunchbox.jpg",
+  "aiImage": true
+ }
+]

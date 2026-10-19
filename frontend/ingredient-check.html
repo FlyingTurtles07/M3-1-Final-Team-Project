@@ -250,6 +250,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
 (function () {
   /* =====================================================
@@ -397,7 +398,7 @@
   /* =====================================================
    * 4) 확정 → 오늘의 한상
    * ===================================================== */
-  $('confirm').addEventListener('click', function () {
+  $('confirm').addEventListener('click', async function () {
     var ok = items.filter(function (i) { return !i.suspect; }).map(function (i) { return i.name; });
     var pending = items.filter(function (i) { return i.suspect; });
     if (!ok.length && !pending.length) { show('재료를 한 개 이상 넣어 주세요'); return; }
@@ -409,6 +410,11 @@
       localStorage.setItem('fridgeIngredients', JSON.stringify(ok));
       localStorage.removeItem('ingredientDraft');
     } catch (e) { /* 건너뜀 */ }
+    // 로그인했으면 서버에도 저장해요 (너무 오래 걸리면 기다리지 않고 넘어가요)
+    if (window.HansangAPI && HansangAPI.isLoggedIn()) {
+      $('confirm').textContent = '저장하는 중…';
+      await Promise.race([HansangAPI.saveDoc('pantry', ok), new Promise(function (r) { setTimeout(r, 4000); })]);
+    }
     location.href = 'today-meal.html';
   });
   $('retake').addEventListener('click', function () { location.href = 'home.html'; });

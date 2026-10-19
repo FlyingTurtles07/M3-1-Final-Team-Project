@@ -364,6 +364,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
+<script src="api.js"></script>
 <script>
   /* =====================================================
    * 1) 앞 화면에서 넘어온 데이터
@@ -683,14 +684,25 @@
       fd.append('photo', photoBlob, 'meal.jpg');
       fd.append('data', JSON.stringify(record));
 
-      /* ---- 실제 API 연동 예시 ----
-      var res = await fetch('https://YOUR-BACKEND/api/meal-records', { method: 'POST', body: fd });
-      if (!res.ok) throw new Error('save failed: ' + res.status);
-      ---------------------------- */
-      await sleep(900);                               // 가짜 대기 시간
-      window.lastRecord = record;                     // 확인용 (서버 연동 후에는 필요 없어요)
-      // 서버 연동 전: 공유한 글을 이 브라우저에 저장해서 '다른 집 한상'에 보여줘요
-      if (vis === 'share') {
+      window.lastRecord = record;
+      // 공유: 로그인했으면 서버에 올려서 다른 가족도 볼 수 있게 해요
+      var uploaded = false;
+      if (vis === 'share' && window.HansangAPI && HansangAPI.isLoggedIn()) {
+        try {
+          var up = new FormData();
+          up.append('photo', photoBlob, 'meal.jpg');
+          up.append('data', JSON.stringify(record));
+          await HansangAPI.request('POST', '/api/posts', { form: up, timeout: 90000 });
+          uploaded = true;
+        } catch (err) {
+          if (err && err.status && err.status !== 0 && err.status !== 401) throw err;   // 사진 형식 등 서버가 거절한 경우
+        }
+      } else {
+        await sleep(500);
+      }
+      // 서버에 못 올렸으면(로그인 전·연결 실패) 이 기기에만 저장해서 '다른 집 한상'에 보여줘요
+      if (vis === 'share' && !uploaded) {
+        show(window.HansangAPI && HansangAPI.isLoggedIn() ? '서버에 연결하지 못해서 이 기기에만 저장했어요' : '로그인하면 다른 가족도 볼 수 있어요. 지금은 이 기기에만 저장했어요');
         var thumb = await smallPhoto(photoBlob);
         var posts = [];
         try { posts = JSON.parse(localStorage.getItem('sharedPosts') || '[]') || []; } catch (e2) { posts = []; }
@@ -704,10 +716,10 @@
       }
 
       done = true; doneVis = vis;
-      show(vis === 'share' ? '다른 사용자에게 공유했어요' : '나만 보기로 저장했어요');
+      if (vis !== 'share' || uploaded) show(vis === 'share' ? '다른 사용자에게 공유했어요' : '나만 보기로 저장했어요');
       if (vis === 'share') setTimeout(openOut, 500);   // 인스타그램·카카오톡으로도 보낼지 물어봐요
     } catch (e) {
-      show('저장하지 못했어요. 다시 눌러 주세요');
+      show(e && e.message ? e.message : '저장하지 못했어요. 다시 눌러 주세요');
     } finally {
       sending = false; sendingVis = null; renderButtons();
     }

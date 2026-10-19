@@ -239,6 +239,7 @@
   </div>
 </main>
 
+<script src="api.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -267,10 +268,21 @@
      const { error } = await supabase.auth.signInWithPassword({ email, password });
      if (error) throw error;
      ⚠ 비밀번호는 절대 브라우저나 테이블에 직접 저장하지 마세요. */
-  async function signInDemo({ email }) {
-    await new Promise(r => setTimeout(r, 700));        // 네트워크 지연 흉내
-    if (!navigator.onLine) { const e = new Error('offline'); e.code = 'offline'; throw e; }
-    try { localStorage.setItem('onfamily_session', JSON.stringify({ email, at: Date.now() })); } catch {}
+  async function signIn({ email, password }) {
+    try {
+      const res = await HansangAPI.request('POST', '/api/auth/login', { json: { email, password } });
+      HansangAPI.setSession(res);
+      // 서버에 저장한 가족·재료를 이 기기로 가져와요 (다른 화면들이 바로 쓸 수 있게)
+      const fam = await HansangAPI.loadDoc('family');
+      if (Array.isArray(fam)) localStorage.setItem('familyMembers', JSON.stringify(fam));
+      const pantry = await HansangAPI.loadDoc('pantry');
+      if (Array.isArray(pantry)) localStorage.setItem('fridgeIngredients', JSON.stringify(pantry));
+    } catch (err) {
+      const e = new Error(err.message || 'failed');
+      e.code = err.status === 0 ? 'offline' : (err.status === 401 ? 'wrong' : 'server');
+      e.detail = err.message;
+      throw e;
+    }
   }
 
   $('form').addEventListener('submit', async e => {
@@ -284,13 +296,14 @@
 
     $('submit').disabled = true; $('submit').textContent = '로그인하는 중…';
     try {
-      await signInDemo({ email });
+      await signIn({ email, password: pw });
       // 가족을 이미 등록했으면 홈으로, 아니면 가족 프로필로 가요
       let hasFamily = false;
       try { hasFamily = (JSON.parse(localStorage.getItem('familyMembers') || '[]') || []).length > 0; } catch {}
       location.href = hasFamily ? 'home.html' : 'family-profile.html';
     } catch (err) {
-      $('formError').textContent = err.code === 'offline' ? '인터넷 연결이 끊겼어요. 연결을 확인한 뒤 다시 눌러 주세요.' : '로그인하지 못했어요. 이메일과 비밀번호를 확인해 주세요.';
+      $('formError').textContent = err.code === 'offline' ? '서버에 연결하지 못했어요. 잠시 후 다시 눌러 주세요. (처음 접속은 1분쯤 걸릴 수 있어요)'
+        : err.code === 'wrong' ? '이메일 또는 비밀번호를 확인해 주세요.' : (err.detail || '로그인하지 못했어요. 잠시 후 다시 눌러 주세요.');
       $('submit').disabled = false; $('submit').textContent = '로그인';
     }
   });
