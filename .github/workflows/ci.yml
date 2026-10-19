@@ -1,0 +1,51 @@
+# 풀 리퀘스트를 올리면 자동으로 시험이 돌아요. (담당: feature/backend-infra)
+# 안전 검사 시험(김지혜)이나 AI 시험(안성현·이미지)은 아래 'api-tests' 에 시험 폴더만 추가하면 같이 돌아요.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  api-tests:
+    name: API 시험 (프로필·동의·암호화)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/api/requirements-dev.txt
+      - run: pip install -r backend/api/requirements-dev.txt
+      - name: 코드 점검 (ruff)
+        run: ruff check backend/api backend/db --config backend/api/ruff.toml
+      - name: 시험 실행
+        run: python -m pytest backend/api/tests -q
+
+  db-rls-tests:
+    name: DB 접근 제한(RLS) 시험
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest "psycopg[binary]>=3.2"
+      - name: 시험 실행 (임시 PostgreSQL 사용, 실제 Supabase와 무관)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: python -m pytest backend/db -q
