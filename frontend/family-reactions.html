@@ -260,15 +260,24 @@
   }
 
   /* ---------- 몸 이상 알림 ---------- */
+  function symAll(sym) { return sym.items.concat(sym.text ? [sym.text] : []); }
+  function symList(sym) { return symAll(sym).join(', ') || '적지 않았어요'; }
+  // 알림 제목: 할머니가 '머리가 아파요'라고 알렸어요 / '입 주변이 가려워요' 외 2개 증상을 알렸어요
+  function symHead(name, sym) {
+    var a = symAll(sym), who = name + iGa(name) + ' ';
+    if (!a.length) return who + '몸이 불편했다고 알렸어요';
+    if (a.length === 1) return who + '‘' + a[0] + '’라고 알렸어요';
+    return who + '‘' + a[0] + '’ 외 ' + (a.length - 1) + '개 증상을 알렸어요';
+  }
   function alertCard(r) {
     var c = el('section', 'card alert');
     c.setAttribute('aria-label', r.member + ' 몸 이상 알림');
     var top = el('div', 'alert-top'); top.appendChild(face(r));
-    var t = el('div'), b = el('b'); b.innerHTML = WARN; b.appendChild(document.createTextNode(r.member + iGa(r.member) + ' 몸이 불편했다고 알렸어요'));
+    var t = el('div'), b = el('b'); b.innerHTML = WARN; b.appendChild(document.createTextNode(symHead(r.member, r.symptom)));
     t.appendChild(b); t.appendChild(el('small', null, when(r.updatedAt || r.createdAt)));
     top.appendChild(t); c.appendChild(top);
     var sym = el('div', 'sym-box'); sym.appendChild(el('b', null, '증상: '));
-    sym.appendChild(document.createTextNode(r.symptom.items.concat(r.symptom.text ? [r.symptom.text] : []).join(', ') || '적지 않았어요'));
+    sym.appendChild(document.createTextNode(symList(r.symptom)));
     c.appendChild(sym);
     c.appendChild(el('p', 'note', '앱은 진단을 대신하지 않아요. 숨쉬기 어렵거나 얼굴·입술이 붓는다면 바로 119나 응급실로 가세요.'));
 
@@ -344,7 +353,7 @@
     top.appendChild(rate); main.appendChild(top);
     if (r.comment) main.appendChild(el('p', null, r.comment));
     else if ((r.chips || []).length) main.appendChild(el('p', 'sub', r.chips.join(' · ')));
-    if (r.symptom && r.ack && r.symptom.items.length) main.appendChild(el('p', 'sub', '증상: ' + r.symptom.items.join(', ')));
+    if (r.symptom && r.ack) main.appendChild(el('p', 'sub', '증상: ' + symList(r.symptom)));
     if ((r.suspects || []).length) main.appendChild(el('p', 'sus', '의심 재료: ' + r.suspects.join(', ')));
     var del = el('button', 'p-del', '이 의견 지우기'); del.type = 'button';
     del.addEventListener('click', async function () {

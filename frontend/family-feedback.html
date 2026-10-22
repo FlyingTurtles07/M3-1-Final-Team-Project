@@ -394,6 +394,7 @@
     $('scroll').scrollTop = 0;
   }
 
+  function symList(sym) { return sym.items.concat(sym.text ? [sym.text] : []).join(', ') || '불편했어요'; }
   function showDone(r) {
     view('done');
     $('doneTitle').textContent = sender() + '에게 전달했어요';
@@ -404,7 +405,7 @@
     top.appendChild(rate); sum.appendChild(top);
     if (r.chips.length) { var tg = el('div', 'tags'); r.chips.forEach(function (c) { tg.appendChild(el('span', 'tag', c)); }); sum.appendChild(tg); }
     if (r.comment) sum.appendChild(el('p', null, r.comment));
-    if (r.symptom) sum.appendChild(el('p', 'sym-sent', '몸이 불편했다고 ' + sender() + '에게만 알렸어요' + (r.symptom.items.length ? ': ' + r.symptom.items.join(', ') : '')));
+    if (r.symptom) sum.appendChild(el('p', 'sym-sent', sender() + '에게만 알린 증상: ' + symList(r.symptom)));
     $('scroll').scrollTop = 0;
   }
   $('editBtn').addEventListener('click', function () { showForm(loadMine()); });
