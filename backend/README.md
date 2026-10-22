@@ -18,7 +18,7 @@
 ## 환경변수
 | 이름 | 설명 | 없을 때 |
 |---|---|---|
-| `DATABASE_URL` | Postgres 주소 (Render가 자동으로 넣어요) | `local.db`(SQLite) |
+| `FIREBASE_CREDENTIALS` | Firebase 서비스 계정 키 JSON 내용 (데이터는 Firestore에 저장) | 프로젝트 폴더의 `*firebase-adminsdk*.json` 파일 |
 | `JWT_SECRET` | 로그인 토큰 서명 키 (Render가 자동 생성) | 개발용 값 (배포 금지) |
 | `OPENAI_API_KEY` | 사진 재료 인식·AI 레시피 | 예시 재료·기본 레시피 10개 |
 | `MFDS_API_KEY` | 공공데이터포털 식품영양성분DB | 앱에 넣어 둔 기본 수치(임시값) |
@@ -38,5 +38,5 @@ uvicorn main:app --reload       # http://localhost:8000/docs
 ## [검토] 확정이 필요한 것
 - 당뇨식·저염식 기준값(`safety.py`의 `LIMITS`)과 기본 영양 수치는 전문가 확정 전 임시값이에요.
 - 식약처 API 주소·응답 필드 이름은 활용신청 후 참고문서로 확인해서 `MFDS_*` 환경변수로 맞춰 주세요.
-- 무료 DB는 30일 뒤 만료돼요. 계속 쓰려면 유료 플랜으로 바꿔야 해요.
+- 데이터는 Firebase Firestore(프로젝트 ffff-da962)에 저장해요. 예전 Render Postgres 데이터는 `migrate_to_firestore.py`로 옮겼어요.
 - `legacy/`는 예전 안전보고서(PubMed RAG) 코드예요. 지금 화면에서는 쓰지 않아요.

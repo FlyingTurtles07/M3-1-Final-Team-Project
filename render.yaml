@@ -22,10 +22,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
-      - key: DATABASE_URL
-        fromDatabase:
-          name: onfamily-hansang-db
-          property: connectionString
+      - key: FIREBASE_CREDENTIALS   # Firebase 서비스 계정 키 JSON 내용 (대시보드에서 직접 넣어요). 데이터는 Firestore에 저장해요
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS

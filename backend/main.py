@@ -1,17 +1,21 @@
-"""온가족 한상 백엔드 (FastAPI).
+"""온가족 한상 백엔드 (FastAPI + Firebase Firestore).
 
 실행:  uvicorn main:app --reload        (backend 폴더에서)
 문서:  http://localhost:8000/docs
 
 1) 회원: 가입·로그인(토큰), 가족 프로필·재료·보관함 저장           /api/auth/*, /api/me, /api/me/data/{key}
 2) 공유: 다른 집 한상 글(사진·레시피) 저장·조회·좋아요·신고·삭제    /api/posts*
-3) AI:   사진 재료 인식, 레시피 3개 추천                            /api/ingredients/analyze, /api/recipes/recommend
+3) AI:   사진 재료 인식, 레시피 3개 추천, 요리 사진                  /api/ingredients/analyze, /api/recipes/*
 4) 안전: 알레르기·당뇨식·저염식 검사                                /api/safety/check (추천 결과에도 함께 들어가요)
+5) 나만의 레시피북                                                  /api/records*
+
+데이터는 Firebase Firestore에 저장해요 (fstore.py).
 """
 import json
 import logging
 import os
 import re
+import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -19,22 +23,21 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).with_name(".env"))   # 다른 모듈이 환경변수를 읽기 전에 불러와요
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile  # noqa: E402
+from fastapi.concurrency import run_in_threadpool  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
-from sqlalchemy import func, select  # noqa: E402
-from sqlalchemy.exc import IntegrityError  # noqa: E402
 
+import fstore  # noqa: E402
 import images  # noqa: E402
 import recipes  # noqa: E402
 import safety  # noqa: E402
 import vision  # noqa: E402
 from auth import check_password, hash_password, make_token, optional_user, require_user  # noqa: E402
-from db import Feedback, Post, PostLike, RecipeImage, Record, Report, SessionLocal, User, UserDoc, init_db, now  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("hansang")
 
-app = FastAPI(title="온가족 한상 API", version="1.0")
+app = FastAPI(title="온가족 한상 API", version="2.0")
 origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
 
@@ -48,34 +51,50 @@ HIDE_AFTER_REPORTS = 3
 
 @app.on_event("startup")
 def startup() -> None:
-    init_db()
-    _seed_posts()
+    try:
+        _seed_posts()
+    except Exception:
+        log.exception("예시 게시물을 넣지 못했어요 (Firestore 연결을 확인하세요)")
 
 
 def _seed_posts() -> None:
     """처음 시작할 때 예시 게시물을 넣어 둬요 (게시물이 하나도 없을 때만)"""
-    with SessionLocal() as s:
-        if s.scalar(select(func.count()).select_from(Post)):
-            return
-        data = json.loads((Path(__file__).with_name("data") / "sample_posts.json").read_text(encoding="utf-8"))
-        for p in data:
-            s.add(Post(title=p["title"], comment=p.get("comment", ""), auto_tags=p.get("autoTags", []),
-                       user_tags=p.get("userTags", []), recipe=p.get("recipe"), photo_url=p.get("photoUrl"),
-                       ai_image=bool(p.get("aiImage")), verified=bool(p.get("verified")), likes=int(p.get("likes", 0))))
-        s.commit()
-        log.info("예시 게시물 %d개를 넣었어요", len(data))
+    if fstore.count_posts():
+        return
+    data = json.loads((Path(__file__).with_name("data") / "sample_posts.json").read_text(encoding="utf-8"))
+    for p in data:
+        fstore.add_post(title=p["title"], comment=p.get("comment", ""), auto_tags=p.get("autoTags", []),
+                        user_tags=p.get("userTags", []), recipe=p.get("recipe"), photo_url=p.get("photoUrl"),
+                        ai_image=bool(p.get("aiImage")), verified=bool(p.get("verified")), likes=int(p.get("likes", 0)))
+    log.info("예시 게시물 %d개를 넣었어요", len(data))
+
+
+def _base(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
+
+
+async def _read_photo(f: UploadFile) -> tuple[bytes, str]:
+    if f.content_type not in PHOTO_TYPES:
+        raise HTTPException(400, "사진 파일(JPEG·PNG·WEBP)만 올릴 수 있어요")
+    data = await f.read()
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(413, "사진은 5MB 이하만 올릴 수 있어요")
+    return await run_in_threadpool(fstore.shrink_photo, data)
+
+
+def _photo_response(found, cache: str) -> Response:
+    if not found:
+        raise HTTPException(404, "사진이 없어요")
+    data, mime = found
+    return Response(data, media_type=mime, headers={"Cache-Control": cache})
 
 
 # ---------------------------------------------------------------- 상태
 @app.get("/api/health")
 def health():
-    ok = True
-    try:
-        with SessionLocal() as s:
-            s.execute(select(1))
-    except Exception:
-        ok = False
-    return {"ok": ok, "db": ok, "ai": bool(os.getenv("OPENAI_API_KEY")), "images": images.enabled(), "vision": vision.enabled(), "mfds": bool(safety.MFDS_API_KEY)}
+    ok = fstore.ping()
+    return {"ok": ok, "db": ok, "store": "firestore", "ai": bool(os.getenv("OPENAI_API_KEY")), "images": images.enabled(),
+            "vision": vision.enabled(), "mfds": bool(safety.MFDS_API_KEY)}
 
 
 # ---------------------------------------------------------------- 1) 회원
@@ -91,8 +110,8 @@ class LoginReq(BaseModel):
     password: str
 
 
-def _user_out(u: User) -> dict:
-    return {"id": u.id, "name": u.name, "email": u.email}
+def _user_out(u: dict) -> dict:
+    return {"id": u["id"], "name": u["name"], "email": u["email"]}
 
 
 @app.post("/api/auth/signup")
@@ -106,46 +125,34 @@ def signup(req: SignupReq):
     if not all(req.consents.get(k) for k in need):
         raise HTTPException(400, "필수 약관에 모두 동의해 주세요")
     consents = {k: bool(v) for k, v in req.consents.items()}
-    consents["agreedAt"] = now().isoformat()
-    with SessionLocal() as s:
-        u = User(email=email, name=req.name.strip(), pw_hash=hash_password(req.password), consents=consents)
-        s.add(u)
-        try:
-            s.commit()
-        except IntegrityError:
-            raise HTTPException(409, "이미 가입된 이메일이에요")
-        return {"token": make_token(u.id), "user": _user_out(u)}
+    consents["agreedAt"] = fstore.now().isoformat()
+    try:
+        u = fstore.create_user(email, req.name.strip(), hash_password(req.password), consents)
+    except fstore.Duplicate:
+        raise HTTPException(409, "이미 가입된 이메일이에요")
+    return {"token": make_token(u["id"]), "user": _user_out(u)}
 
 
 @app.post("/api/auth/login")
 def login(req: LoginReq):
-    with SessionLocal() as s:
-        u = s.scalar(select(User).where(User.email == req.email.strip().lower()))
-        if not u or not check_password(req.password, u.pw_hash):
-            raise HTTPException(401, "이메일 또는 비밀번호를 확인해 주세요")
-        return {"token": make_token(u.id), "user": _user_out(u)}
+    u = fstore.get_user_by_email(req.email.strip().lower())
+    if not u or not check_password(req.password, u["pw_hash"]):
+        raise HTTPException(401, "이메일 또는 비밀번호를 확인해 주세요")
+    return {"token": make_token(u["id"]), "user": _user_out(u)}
 
 
 @app.get("/api/me")
 def me(uid: int = Depends(require_user)):
-    with SessionLocal() as s:
-        u = s.get(User, uid)
-        if not u:
-            raise HTTPException(401, "로그인이 필요해요")
-        return _user_out(u)
+    u = fstore.get_user(uid)
+    if not u:
+        raise HTTPException(401, "로그인이 필요해요")
+    return _user_out(u)
 
 
 @app.delete("/api/me")
 def withdraw(uid: int = Depends(require_user)):
-    """탈퇴: 계정·가족·건강 정보·게시물을 모두 지워요"""
-    with SessionLocal() as s:
-        u = s.get(User, uid)
-        if u:
-            for model in (UserDoc, PostLike, Feedback, Record):
-                s.query(model).filter(model.user_id == uid).delete()
-            s.query(Post).filter(Post.user_id == uid).delete()
-            s.delete(u)
-            s.commit()
+    """탈퇴: 계정·가족·건강 정보·게시물·레시피북을 모두 지워요"""
+    fstore.delete_user(uid)
     return {"ok": True}
 
 
@@ -157,9 +164,7 @@ class DocReq(BaseModel):
 def get_doc(key: str, uid: int = Depends(require_user)):
     if key not in DOC_KEYS:
         raise HTTPException(404, "없는 항목이에요")
-    with SessionLocal() as s:
-        d = s.get(UserDoc, (uid, key))
-        return {"data": d.data if d else None}
+    return {"data": fstore.get_doc(uid, key)}
 
 
 @app.put("/api/me/data/{key}")
@@ -168,27 +173,18 @@ def put_doc(key: str, req: DocReq, uid: int = Depends(require_user)):
         raise HTTPException(404, "없는 항목이에요")
     if len(json.dumps(req.data, ensure_ascii=False).encode()) > MAX_DOC_BYTES:
         raise HTTPException(413, "저장할 내용이 너무 커요")
-    with SessionLocal() as s:
-        d = s.get(UserDoc, (uid, key))
-        if d:
-            d.data = req.data
-            d.updated_at = now()
-        else:
-            s.add(UserDoc(user_id=uid, key=key, data=req.data))
-        s.commit()
+    fstore.put_doc(uid, key, req.data)
     return {"ok": True}
 
 
 # ---------------------------------------------------------------- 2) 다른 집 한상
-def _post_out(p: Post, base: str, uid: int | None, liked: set[int]) -> dict:
-    photo = f"{base}/api/posts/{p.id}/photo" if p.photo else p.photo_url
-    return {"id": p.id, "title": p.title, "comment": p.comment, "autoTags": p.auto_tags or [], "userTags": p.user_tags or [],
-            "likes": p.likes, "liked": p.id in liked, "verified": p.verified, "photoUrl": photo, "aiImage": p.ai_image,
-            "recipe": p.recipe, "mine": uid is not None and p.user_id == uid, "createdAt": p.created_at.isoformat() if p.created_at else None}
-
-
-def _base(request: Request) -> str:
-    return str(request.base_url).rstrip("/")
+def _post_out(p: dict, base: str, uid: int | None, liked: set[int]) -> dict:
+    photo = f"{base}/api/posts/{p['id']}/photo" if p.get("has_photo") else p.get("photo_url")
+    created = p.get("created_at")
+    return {"id": p["id"], "title": p["title"], "comment": p.get("comment", ""), "autoTags": p.get("auto_tags") or [],
+            "userTags": p.get("user_tags") or [], "likes": int(p.get("likes", 0)), "liked": p["id"] in liked,
+            "verified": bool(p.get("verified")), "photoUrl": photo, "aiImage": bool(p.get("ai_image")), "recipe": p.get("recipe"),
+            "mine": uid is not None and p.get("user_id") == uid, "createdAt": created.isoformat() if created else None}
 
 
 @app.get("/api/posts")
@@ -197,32 +193,33 @@ def list_posts(request: Request, text: str = "", tags: str = "", offset: int = 0
     tag_list = [t for t in tags.split(",") if t]
     need_safe = any(t.endswith("제외") for t in tag_list)   # 알레르기 제외 검색은 안전 확인된 글만
     q = text.strip().lower()
-    with SessionLocal() as s:
-        rows = s.scalars(select(Post).where(Post.hidden.is_(False))).all()
-        reported = set(s.scalars(select(Report.post_id).where(Report.user_id == uid)).all()) if uid else set()
-        liked = set(s.scalars(select(PostLike.post_id).where(PostLike.user_id == uid)).all()) if uid else set()
+    rows = fstore.list_posts()
+    reported = fstore.reported_by(uid) if uid else set()
+    liked = fstore.liked_by(uid) if uid else set()
     out = []
     for p in rows:
-        if p.id in reported or (need_safe and not p.verified):
+        if p["id"] in reported or (need_safe and not p.get("verified")):
             continue
         ok = True
         for t in tag_list:
             if t.startswith("#"):
                 w = t[1:].lower()
-                ok = any(u.lower() == w for u in (p.user_tags or [])) or w in (p.comment or "").lower()
+                ok = any(u.lower() == w for u in (p.get("user_tags") or [])) or w in (p.get("comment") or "").lower()
             else:
-                ok = t in (p.auto_tags or [])
+                ok = t in (p.get("auto_tags") or [])
             if not ok:
                 break
         if not ok:
             continue
         if q:
-            ings = " ".join((p.recipe or {}).get("ingredients") or [x[0] for x in (p.recipe or {}).get("ing") or []])
-            hay = " ".join([p.title, p.comment or "", " ".join(p.user_tags or []), " ".join(p.auto_tags or []), ings]).lower()
+            rec = p.get("recipe") or {}
+            ings = " ".join(rec.get("ingredients") or [x[0] for x in rec.get("ing") or []])
+            hay = " ".join([p["title"], p.get("comment") or "", " ".join(p.get("user_tags") or []),
+                            " ".join(p.get("auto_tags") or []), ings]).lower()
             if q not in hay:
                 continue
         out.append(p)
-    out.sort(key=lambda p: (0 if (uid and p.user_id == uid) else 1, -p.likes, -p.id))   # 내 글 → 좋아요 많은 순
+    out.sort(key=lambda p: (0 if (uid and p.get("user_id") == uid) else 1, -int(p.get("likes", 0)), -p["id"]))   # 내 글 → 좋아요 많은 순
     limit = max(1, min(limit, 20))
     base = _base(request)
     return {"posts": [_post_out(p, base, uid, liked) for p in out[offset:offset + limit]], "total": len(out)}
@@ -237,31 +234,23 @@ async def create_post(request: Request, data: str = Form(...), photo: UploadFile
         raise HTTPException(400, "글 내용을 읽지 못했어요")
     if d.get("visibility") != "share" or not d.get("consent"):
         raise HTTPException(400, "공유하려면 공유 동의가 필요해요")
-    if photo.content_type not in PHOTO_TYPES:
-        raise HTTPException(400, "사진 파일(JPEG·PNG·WEBP)만 올릴 수 있어요")
-    img = await photo.read()
-    if len(img) > MAX_PHOTO_BYTES:
-        raise HTTPException(413, "사진은 5MB 이하만 올릴 수 있어요")
+    img, mime = await _read_photo(photo)
     recipe = d.get("recipe")
     if recipe:   # 공통 레시피만 남겨요 (가족 이름·건강 정보는 받지 않아요)
         recipe = {k: recipe.get(k) for k in ("title", "minutes", "servings", "ingredients", "ing", "sauce", "steps")}
-    user_tags = [str(t)[:12] for t in (d.get("myTags") or [])][:5]
-    with SessionLocal() as s:
-        p = Post(user_id=uid, title=str(d.get("recipeTitle") or "우리 집 한상")[:60], comment=str(d.get("comment") or "")[:100],
-                 auto_tags=[str(t)[:20] for t in (d.get("autoTags") or [])][:6], user_tags=user_tags, recipe=recipe,
-                 photo=img, photo_type=photo.content_type, verified=False)
-        s.add(p)
-        s.commit()
-        return _post_out(p, _base(request), uid, set())
+    p = await run_in_threadpool(lambda: fstore.add_post(
+        user_id=uid, title=str(d.get("recipeTitle") or "우리 집 한상")[:60], comment=str(d.get("comment") or "")[:100],
+        auto_tags=[str(t)[:20] for t in (d.get("autoTags") or [])][:6], user_tags=[str(t)[:12] for t in (d.get("myTags") or [])][:5],
+        recipe=recipe, photo=img, photo_type=mime, verified=False))
+    return _post_out(p, _base(request), uid, set())
 
 
 @app.get("/api/posts/{post_id}/photo")
 def post_photo(post_id: int):
-    with SessionLocal() as s:
-        p = s.get(Post, post_id)
-        if not p or not p.photo or p.hidden:
-            raise HTTPException(404, "사진이 없어요")
-        return Response(p.photo, media_type=p.photo_type or "image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+    p = fstore.get_post(post_id)
+    if not p or p.get("hidden"):
+        raise HTTPException(404, "사진이 없어요")
+    return _photo_response(fstore.get_photo(f"post-{post_id}"), "public, max-age=86400")
 
 
 class LikeReq(BaseModel):
@@ -270,19 +259,11 @@ class LikeReq(BaseModel):
 
 @app.post("/api/posts/{post_id}/like")
 def like_post(post_id: int, req: LikeReq, uid: int = Depends(require_user)):
-    with SessionLocal() as s:
-        p = s.get(Post, post_id)
-        if not p:
-            raise HTTPException(404, "게시물이 없어요")
-        has = s.get(PostLike, (post_id, uid))
-        if req.liked and not has:
-            s.add(PostLike(post_id=post_id, user_id=uid))
-            p.likes += 1
-        elif not req.liked and has:
-            s.delete(has)
-            p.likes = max(0, p.likes - 1)
-        s.commit()
-        return {"likes": p.likes, "liked": req.liked}
+    try:
+        likes = fstore.set_like(post_id, uid, req.liked)
+    except KeyError:
+        raise HTTPException(404, "게시물이 없어요")
+    return {"likes": likes, "liked": req.liked}
 
 
 class ReportReq(BaseModel):
@@ -291,28 +272,20 @@ class ReportReq(BaseModel):
 
 @app.post("/api/posts/{post_id}/report")
 def report_post(post_id: int, req: ReportReq, uid: int | None = Depends(optional_user)):
-    with SessionLocal() as s:
-        p = s.get(Post, post_id)
-        if not p:
-            raise HTTPException(404, "게시물이 없어요")
-        s.add(Report(post_id=post_id, user_id=uid, reason=req.reason))
-        s.flush()
-        if s.scalar(select(func.count()).select_from(Report).where(Report.post_id == post_id)) >= HIDE_AFTER_REPORTS:
-            p.hidden = True   # 신고가 쌓이면 운영자가 확인할 때까지 숨겨요
-        s.commit()
+    if not fstore.get_post(post_id):
+        raise HTTPException(404, "게시물이 없어요")
+    fstore.add_report(post_id, uid, req.reason, HIDE_AFTER_REPORTS)
     return {"ok": True}
 
 
 @app.delete("/api/posts/{post_id}")
 def delete_post(post_id: int, uid: int = Depends(require_user)):
-    with SessionLocal() as s:
-        p = s.get(Post, post_id)
-        if not p:
-            raise HTTPException(404, "게시물이 없어요")
-        if p.user_id != uid:
-            raise HTTPException(403, "내가 올린 글만 지울 수 있어요")
-        s.delete(p)
-        s.commit()
+    p = fstore.get_post(post_id)
+    if not p:
+        raise HTTPException(404, "게시물이 없어요")
+    if p.get("user_id") != uid:
+        raise HTTPException(403, "내가 올린 글만 지울 수 있어요")
+    fstore.delete_post(post_id)
     return {"ok": True}
 
 
@@ -326,10 +299,8 @@ class FeedbackReq(BaseModel):
 
 @app.post("/api/feedback")
 def feedback(req: FeedbackReq, uid: int | None = Depends(optional_user)):
-    with SessionLocal() as s:
-        s.add(Feedback(user_id=uid, recipe_id=req.recipeId[:80], recipe_title=req.recipeTitle[:80],
-                       answers=req.answers, comment=req.comment))
-        s.commit()
+    fstore.add_feedback(user_id=uid, recipe_id=req.recipeId[:80], recipe_title=req.recipeTitle[:80],
+                        answers=req.answers, comment=req.comment)
     return {"ok": True}
 
 
@@ -409,54 +380,40 @@ def _image_url(request: Request, image_id: int) -> str:
 async def recipe_image(req: RecipeImageReq, request: Request):
     """요리 사진을 돌려줘요. 이미 그린 요리면 저장된 사진을, 처음이면 새로 그려요."""
     key = images.title_key(req.title)
-    with SessionLocal() as s:
-        found = s.scalar(select(RecipeImage).where(RecipeImage.key == key))
-        if found:
-            return {"url": _image_url(request, found.id), "cached": True}
+    found = await run_in_threadpool(fstore.find_recipe_image, key)
+    if found:
+        return {"url": _image_url(request, found), "cached": True}
     if not images.enabled():
         raise HTTPException(503, "요리 사진을 만들 수 없어요")
     async with images.lock_for(key):      # 같은 요리를 동시에 두 번 그리지 않게
-        with SessionLocal() as s:
-            found = s.scalar(select(RecipeImage).where(RecipeImage.key == key))
-            if found:
-                return {"url": _image_url(request, found.id), "cached": True}
+        found = await run_in_threadpool(fstore.find_recipe_image, key)
+        if found:
+            return {"url": _image_url(request, found), "cached": True}
         data = await images.generate(req.title, [str(x)[:20] for x in req.ingredients][:8])
         if not data:
             raise HTTPException(502, "요리 사진을 만들지 못했어요")
-        with SessionLocal() as s:
-            row = RecipeImage(key=key, title=req.title[:80], image=data)
-            s.add(row)
-            try:
-                s.commit()
-            except IntegrityError:
-                s.rollback()
-                row = s.scalar(select(RecipeImage).where(RecipeImage.key == key))
-            return {"url": _image_url(request, row.id), "cached": False}
+        iid = await run_in_threadpool(fstore.add_recipe_image, key, req.title[:80], data)
+        return {"url": _image_url(request, iid), "cached": False}
 
 
 @app.get("/api/recipe-images/{image_id}")
 def get_recipe_image(image_id: int):
-    with SessionLocal() as s:
-        row = s.get(RecipeImage, image_id)
-        if not row:
-            raise HTTPException(404, "사진이 없어요")
-        return Response(row.image, media_type=row.mime, headers={"Cache-Control": "public, max-age=604800"})
+    return _photo_response(fstore.get_photo(f"img-{image_id}"), "public, max-age=604800")
 
 
 # ---------------------------------------------------------------- 나만의 레시피북 (내 식사 기록)
-def _record_out(r: Record, base: str) -> dict:
-    return {"id": r.id, "title": r.title, "comment": r.comment, "autoTags": r.auto_tags or [], "userTags": r.user_tags or [],
-            "recipe": r.recipe, "visibility": r.visibility,
-            "photoUrl": f"{base}/api/records/photo/{r.photo_key}" if r.photo else None,
-            "createdAt": r.created_at.isoformat() if r.created_at else None}
+def _record_out(r: dict, base: str) -> dict:
+    created = r.get("created_at")
+    return {"id": r["id"], "title": r["title"], "comment": r.get("comment", ""), "autoTags": r.get("auto_tags") or [],
+            "userTags": r.get("user_tags") or [], "recipe": r.get("recipe"), "visibility": r.get("visibility", "private"),
+            "photoUrl": f"{base}/api/records/photo/{r['photo_key']}" if r.get("has_photo") else None,
+            "createdAt": created.isoformat() if created else None}
 
 
 @app.get("/api/records")
 def list_records(request: Request, uid: int = Depends(require_user)):
-    with SessionLocal() as s:
-        rows = s.scalars(select(Record).where(Record.user_id == uid).order_by(Record.id.desc())).all()
-        base = _base(request)
-        return {"records": [_record_out(r, base) for r in rows]}
+    base = _base(request)
+    return {"records": [_record_out(r, base) for r in fstore.list_records(uid)]}
 
 
 @app.post("/api/records")
@@ -466,43 +423,27 @@ async def create_record(request: Request, data: str = Form(...), photo: UploadFi
         d = json.loads(data)
     except ValueError:
         raise HTTPException(400, "기록 내용을 읽지 못했어요")
-    img, mime = None, None
-    if photo is not None:
-        if photo.content_type not in PHOTO_TYPES:
-            raise HTTPException(400, "사진 파일(JPEG·PNG·WEBP)만 올릴 수 있어요")
-        img = await photo.read()
-        if len(img) > MAX_PHOTO_BYTES:
-            raise HTTPException(413, "사진은 5MB 이하만 올릴 수 있어요")
-        mime = photo.content_type
+    img, mime = (await _read_photo(photo)) if photo is not None else (None, None)
     recipe = d.get("recipe")
     if recipe:
         recipe = {k: recipe.get(k) for k in ("title", "minutes", "servings", "ingredients", "ing", "sauce", "steps")}
-    import secrets as _secrets
-    with SessionLocal() as s:
-        r = Record(user_id=uid, title=str(d.get("recipeTitle") or "우리 집 한상")[:60], comment=str(d.get("comment") or "")[:100],
-                   auto_tags=[str(t)[:20] for t in (d.get("autoTags") or [])][:6], user_tags=[str(t)[:12] for t in (d.get("myTags") or [])][:5],
-                   recipe=recipe, visibility="share" if d.get("visibility") == "share" else "private",
-                   photo=img, photo_type=mime, photo_key=_secrets.token_urlsafe(24))
-        s.add(r)
-        s.commit()
-        return _record_out(r, _base(request))
+    r = await run_in_threadpool(lambda: fstore.add_record(
+        user_id=uid, title=str(d.get("recipeTitle") or "우리 집 한상")[:60], comment=str(d.get("comment") or "")[:100],
+        auto_tags=[str(t)[:20] for t in (d.get("autoTags") or [])][:6], user_tags=[str(t)[:12] for t in (d.get("myTags") or [])][:5],
+        recipe=recipe, visibility="share" if d.get("visibility") == "share" else "private",
+        photo=img, photo_type=mime, photo_key=secrets.token_urlsafe(24)))
+    return _record_out(r, _base(request))
 
 
 @app.get("/api/records/photo/{key}")
 def record_photo(key: str):
-    with SessionLocal() as s:
-        r = s.scalar(select(Record).where(Record.photo_key == key))
-        if not r or not r.photo:
-            raise HTTPException(404, "사진이 없어요")
-        return Response(r.photo, media_type=r.photo_type or "image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+    return _photo_response(fstore.get_photo(key), "private, max-age=86400")
 
 
 @app.delete("/api/records/{record_id}")
 def delete_record(record_id: int, uid: int = Depends(require_user)):
-    with SessionLocal() as s:
-        r = s.get(Record, record_id)
-        if not r or r.user_id != uid:
-            raise HTTPException(404, "기록이 없어요")
-        s.delete(r)
-        s.commit()
+    r = fstore.get_record(record_id)
+    if not r or r.get("user_id") != uid:
+        raise HTTPException(404, "기록이 없어요")
+    fstore.delete_record(record_id)
     return {"ok": True}
