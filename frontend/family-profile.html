@@ -602,24 +602,34 @@
   function openCustomInput(addBtn) {
     var input = document.createElement('input');
     input.className = 'chip-input';
-    input.type = 'text'; input.maxLength = 20;
-    input.placeholder = '알레르기 입력';
-    input.setAttribute('aria-label', '직접 추가할 알레르기 이름');
+    input.type = 'text'; input.maxLength = 80;
+    input.placeholder = '예: 복숭아, 키위';
+    input.setAttribute('aria-label', '직접 추가할 알레르기 이름 (쉼표로 여러 개)');
     var done = false;
+    // 쉼표(,)로 나누면 각각 다른 알레르기로 추가해요. 예: "복숭아, 키위" → 복숭아 / 키위
     function commit(save) {
       if (done) return; done = true;
-      var v = input.value.trim().replace(/\s+/g, ' ');
-      if (save && v) {
-        var dup = ALLERGY.concat(state.custom).some(function (x) { return x.replace(/\s/g, '') === v.replace(/\s/g, ''); });
-        if (dup) {
-          show('이미 있는 항목이에요');
-          if (!has(state.allergy, v) && has(ALLERGY.concat(state.custom), v)) toggleAllergy(v, has(state.custom, v));
-        } else {
-          state.allergy = without(state.allergy, NONE).concat(v);
-          state.custom = state.custom.concat(v);
-          setError('fAllergy', 'msgAllergy', false);
+      var parts = save ? input.value.split(/[,，、]/).map(function (x) { return x.trim().replace(/\s+/g, ' ').slice(0, 20); }).filter(Boolean) : [];
+      var added = [], dups = [], full = false;
+      parts.forEach(function (v) {
+        var same = function (x) { return x.replace(/\s/g, '') === v.replace(/\s/g, ''); };
+        var existing = ALLERGY.concat(state.custom).filter(same)[0];
+        if (existing) {
+          dups.push(existing);
+          if (existing !== NONE && !has(state.allergy, existing)) state.allergy = without(state.allergy, NONE).concat(existing);   // 이미 있는 항목이면 선택만 해요
+          return;
         }
-      }
+        if (state.custom.length >= MAX_CUSTOM) { full = true; return; }
+        state.allergy = without(state.allergy, NONE).concat(v);
+        state.custom = state.custom.concat(v);
+        added.push(v);
+      });
+      if (added.length || dups.length) setError('fAllergy', 'msgAllergy', false);
+      var msgs = [];
+      if (added.length > 1) msgs.push(added.length + '개를 추가했어요');
+      if (dups.length) msgs.push('이미 있는 항목은 선택만 했어요: ' + dups.join(', '));
+      if (full) msgs.push('직접 추가는 ' + MAX_CUSTOM + '개까지 할 수 있어요');
+      if (msgs.length) show(msgs.join(' \u00b7 '));
       renderAllergy();
     }
     input.addEventListener('keydown', function (e) {
