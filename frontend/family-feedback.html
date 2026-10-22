@@ -361,7 +361,12 @@
     $('symBody').hidden = !open; $('symToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
     $('symOpenTxt').textContent = open ? '닫기' : '열기';
   }
-  $('symToggle').addEventListener('click', function () { setSymOpen($('symBody').hidden); });
+  $('symToggle').addEventListener('click', function () {
+    var open = $('symBody').hidden;
+    setSymOpen(open);
+    // 펼친 내용이 아래 버튼에 가려지지 않게 화면을 내려 줘요
+    if (open) $('sym').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   function missing() {
     if (!st.member) return '내 이름을 골라 주세요';

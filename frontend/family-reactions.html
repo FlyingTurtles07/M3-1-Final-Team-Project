@@ -203,7 +203,7 @@
   }
   function when(iso) {
     var d = new Date(iso); if (isNaN(d)) return '';
-    var h = d.getHours(), part = h < 11 ? '아침' : h < 16 ? '점심' : '저녁', hh = h % 12 || 12;
+    var h = d.getHours(), part = h < 12 ? '오전' : '오후', hh = h % 12 || 12;
     var today = new Date().toDateString() === d.toDateString();
     return (today ? '' : (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ') + part + ' ' + hh + '시 ' + d.getMinutes() + '분';
   }
