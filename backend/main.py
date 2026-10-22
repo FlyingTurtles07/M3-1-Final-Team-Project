@@ -499,7 +499,21 @@ def _share_summary(s: dict, rows: list[dict]) -> dict:
     return {"token": s["token"], "active": bool(s.get("active")), "open": fstore.share_open(s), "postId": s["post_id"],
             "count": len(rows), "members": len(s.get("members") or []),
             "avg": round(sum(ratings) / len(ratings), 1) if ratings else None,
-            "alerts": sum(1 for r in rows if r.get("symptom") and not r.get("ack"))}
+            "alerts": sum(1 for r in rows if r.get("symptom") and not r.get("ack")),
+            "latestAt": _iso(max((r["updated_at"] for r in rows if r.get("updated_at")), default=None))}
+
+
+@app.get("/api/me/shares")
+def my_shares(limit: int = 5, uid: int = Depends(require_user)):
+    """홈 화면 '가족 의견이 도착했어요': 의견을 받은 내 링크를 최근 받은 순서로"""
+    by = fstore.responses_by_share(uid)
+    out = []
+    for s in fstore.shares_of(uid):
+        rows = by.get(s["token"]) or []
+        if rows:
+            out.append(dict(_share_summary(s, rows), title=s["title"]))
+    out.sort(key=lambda d: d["latestAt"] or "", reverse=True)
+    return {"shares": out[:max(1, min(limit, 20))]}
 
 
 def taste_notes(uid: int) -> str:

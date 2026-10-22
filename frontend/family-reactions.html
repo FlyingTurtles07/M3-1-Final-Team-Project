@@ -225,6 +225,7 @@
       else setState('불러오지 못했어요', e && e.message ? e.message : '잠시 뒤 다시 열어 주세요.', '다시 시도', load);
       return;
     }
+    try { localStorage.setItem('seenReactions_' + token, new Date().toISOString()); } catch (e) {}
     render();
   }
 

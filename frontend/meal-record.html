@@ -444,6 +444,7 @@
         <button class="sheet-btn" type="button" id="outSave">사진 저장 · 레시피 글 복사</button>
       </div>
 
+      <button class="sheet-btn ghost" type="button" id="outReact" hidden>가족 반응 보기</button>
       <button class="sheet-btn ghost" type="button" id="outDone">다른 집 한상 보러 가기</button>
       <button class="sheet-btn ghost" type="button" id="outBook">나만의 레시피북 보기</button>
     </div>
@@ -933,6 +934,7 @@
       if (photoUrl) $('mcPhoto').src = photoUrl;
       renderSender(); renderPreview();
       renderLink();
+      $('outReact').hidden = !shareLink;
       pickTab('link');
       buildQr();
     }
@@ -943,6 +945,7 @@
   $('outBackdrop').addEventListener('click', closeOut);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && outSheet.classList.contains('open')) closeOut(); });
   $('outDone').addEventListener('click', function () { location.href = 'browse.html'; });
+  $('outReact').addEventListener('click', function () { location.href = 'family-reactions.html?s=' + encodeURIComponent(shareLink.token); });
   $('outBook').addEventListener('click', function () { location.href = 'recipe-book.html'; });
   $('outLogin').addEventListener('click', function () { location.href = 'login.html'; });
 

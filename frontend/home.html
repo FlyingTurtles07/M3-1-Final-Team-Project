@@ -75,6 +75,29 @@
   }
   .sub { margin: 0 0 16px; font-size: 13.5px; line-height: 1.5; font-weight: 700; color: #3b2a24; text-shadow: 0 0 8px rgba(255,244,232,.95); max-width: 320px; }
 
+  /* 가족 의견 알림 (카카오톡 링크로 받은 의견) */
+  .news { margin: 0 0 14px; }
+  .news:empty { display: none; }
+  .news-card {
+    display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; text-align: left;
+    border: 1.5px solid #f0d9b8; border-radius: 18px; background: var(--card); cursor: pointer;
+    box-shadow: 0 6px 16px rgba(120, 70, 50, .1); transition: transform .15s;
+  }
+  .news-card + .news-card { margin-top: 8px; }
+  .news-card:active { transform: scale(.985); }
+  .news-card.alert { border-color: #e57373; background: #fff6f6; }
+  .news-ico { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fff1dc; color: #c0650f; }
+  .news-card.alert .news-ico { background: #fdecec; color: var(--danger); }
+  .news-ico svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+  .news-body { flex: 1; min-width: 0; }
+  .news-top { display: flex; align-items: center; gap: 6px; }
+  .news-top b { font-size: 14.5px; font-weight: 800; color: var(--ink-deep); }
+  .news-new { flex: none; padding: 2px 7px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 800; }
+  .news-body small { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 700; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .news-body .warn { color: var(--danger); font-weight: 800; }
+  .news-go { flex: none; font-size: 20px; font-weight: 800; color: var(--muted); }
+  .news-card:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
   /* 냉장고 / 영수증 사진 칸 */
   .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .slot {
@@ -193,6 +216,7 @@
   <div class="scroll" id="scroll">
     <h1 id="greet">오늘 저녁,<br>냉장고부터 열어볼까요?</h1>
     <p class="sub">사진 한 장이면 한 가지 요리로 가족 모두의 상을 차릴 수 있어요.</p>
+    <div class="news" id="news" aria-label="가족 의견"></div>
 
     <div class="slots">
       <div class="slot fridge" id="slotFridge">
@@ -334,6 +358,36 @@
     $('greet').appendChild(document.createTextNode('냉장고부터 열어볼까요?'));
   })();
 
+
+  /* =====================================================
+   * 3-1) 가족 의견이 도착했어요: 카카오톡 링크로 받은 의견 → 가족 반응 화면
+   *      가족 반응 화면을 연 뒤에 온 의견만 '새 의견'으로 표시해요 (localStorage 'seenReactions_링크')
+   * ===================================================== */
+  (async function familyNews() {
+    if (!(window.HansangAPI && HansangAPI.isLoggedIn())) return;
+    var list;
+    try { list = (await HansangAPI.request('GET', '/api/me/shares?limit=2')).shares || []; } catch (e) { return; }
+    var box = $('news');
+    var CHAT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.500h8M8 12.500h5"/></svg>';
+    var WARN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.500 2.500 20h19z"/><path d="M12 10v4.500M12 17.500v.01"/></svg>';
+    list.forEach(function (s) {
+      var seen = null; try { seen = localStorage.getItem('seenReactions_' + s.token); } catch (e) {}
+      var isNew = !seen || (s.latestAt && new Date(s.latestAt) > new Date(seen));
+      var b = el('button', 'news-card' + (s.alerts ? ' alert' : '')); b.type = 'button';
+      var ico = el('span', 'news-ico'); ico.innerHTML = s.alerts ? WARN : CHAT; b.appendChild(ico);
+      var body = el('span', 'news-body'), top = el('span', 'news-top');
+      top.appendChild(el('b', null, s.alerts ? '확인이 필요한 가족 의견' : '가족 의견이 도착했어요'));
+      if (isNew) top.appendChild(el('span', 'news-new', '새 의견'));
+      body.appendChild(top);
+      body.appendChild(el('small', null, s.title + ' \u00b7 ' + s.count + (s.members ? '/' + s.members + '명' : '명') + (s.avg ? ' \u00b7 \u2605 ' + s.avg : '')));
+      if (s.alerts) body.appendChild(el('small', 'warn', '몸 이상 알림 ' + s.alerts + '건'));
+      b.appendChild(body);
+      b.appendChild(el('span', 'news-go', '\u203a'));
+      b.setAttribute('aria-label', (s.alerts ? '확인이 필요한 가족 의견, ' : '가족 의견, ') + s.title + ', 가족 반응 보기');
+      b.addEventListener('click', function () { location.href = 'family-reactions.html?s=' + encodeURIComponent(s.token); });
+      box.appendChild(b);
+    });
+  })();
 
   /* =====================================================
    * 4) 냉장고 / 영수증 사진 (촬영 · 갤러리)
