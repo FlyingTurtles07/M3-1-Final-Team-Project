@@ -29,7 +29,7 @@ import recipes  # noqa: E402
 import safety  # noqa: E402
 import vision  # noqa: E402
 from auth import check_password, hash_password, make_token, optional_user, require_user  # noqa: E402
-from db import Feedback, Post, PostLike, RecipeImage, Report, SessionLocal, User, UserDoc, init_db, now  # noqa: E402
+from db import Feedback, Post, PostLike, RecipeImage, Record, Report, SessionLocal, User, UserDoc, init_db, now  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("hansang")
@@ -141,7 +141,7 @@ def withdraw(uid: int = Depends(require_user)):
     with SessionLocal() as s:
         u = s.get(User, uid)
         if u:
-            for model in (UserDoc, PostLike, Feedback):
+            for model in (UserDoc, PostLike, Feedback, Record):
                 s.query(model).filter(model.user_id == uid).delete()
             s.query(Post).filter(Post.user_id == uid).delete()
             s.delete(u)
@@ -441,3 +441,68 @@ def get_recipe_image(image_id: int):
         if not row:
             raise HTTPException(404, "사진이 없어요")
         return Response(row.image, media_type=row.mime, headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ---------------------------------------------------------------- 나만의 레시피북 (내 식사 기록)
+def _record_out(r: Record, base: str) -> dict:
+    return {"id": r.id, "title": r.title, "comment": r.comment, "autoTags": r.auto_tags or [], "userTags": r.user_tags or [],
+            "recipe": r.recipe, "visibility": r.visibility,
+            "photoUrl": f"{base}/api/records/photo/{r.photo_key}" if r.photo else None,
+            "createdAt": r.created_at.isoformat() if r.created_at else None}
+
+
+@app.get("/api/records")
+def list_records(request: Request, uid: int = Depends(require_user)):
+    with SessionLocal() as s:
+        rows = s.scalars(select(Record).where(Record.user_id == uid).order_by(Record.id.desc())).all()
+        base = _base(request)
+        return {"records": [_record_out(r, base) for r in rows]}
+
+
+@app.post("/api/records")
+async def create_record(request: Request, data: str = Form(...), photo: UploadFile | None = File(default=None),
+                        uid: int = Depends(require_user)):
+    try:
+        d = json.loads(data)
+    except ValueError:
+        raise HTTPException(400, "기록 내용을 읽지 못했어요")
+    img, mime = None, None
+    if photo is not None:
+        if photo.content_type not in PHOTO_TYPES:
+            raise HTTPException(400, "사진 파일(JPEG·PNG·WEBP)만 올릴 수 있어요")
+        img = await photo.read()
+        if len(img) > MAX_PHOTO_BYTES:
+            raise HTTPException(413, "사진은 5MB 이하만 올릴 수 있어요")
+        mime = photo.content_type
+    recipe = d.get("recipe")
+    if recipe:
+        recipe = {k: recipe.get(k) for k in ("title", "minutes", "servings", "ingredients", "ing", "sauce", "steps")}
+    import secrets as _secrets
+    with SessionLocal() as s:
+        r = Record(user_id=uid, title=str(d.get("recipeTitle") or "우리 집 한상")[:60], comment=str(d.get("comment") or "")[:100],
+                   auto_tags=[str(t)[:20] for t in (d.get("autoTags") or [])][:6], user_tags=[str(t)[:12] for t in (d.get("myTags") or [])][:5],
+                   recipe=recipe, visibility="share" if d.get("visibility") == "share" else "private",
+                   photo=img, photo_type=mime, photo_key=_secrets.token_urlsafe(24))
+        s.add(r)
+        s.commit()
+        return _record_out(r, _base(request))
+
+
+@app.get("/api/records/photo/{key}")
+def record_photo(key: str):
+    with SessionLocal() as s:
+        r = s.scalar(select(Record).where(Record.photo_key == key))
+        if not r or not r.photo:
+            raise HTTPException(404, "사진이 없어요")
+        return Response(r.photo, media_type=r.photo_type or "image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@app.delete("/api/records/{record_id}")
+def delete_record(record_id: int, uid: int = Depends(require_user)):
+    with SessionLocal() as s:
+        r = s.get(Record, record_id)
+        if not r or r.user_id != uid:
+            raise HTTPException(404, "기록이 없어요")
+        s.delete(r)
+        s.commit()
+    return {"ok": True}

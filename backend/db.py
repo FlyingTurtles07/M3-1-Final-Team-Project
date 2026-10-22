@@ -107,6 +107,23 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class Record(Base):
+    """나만의 레시피북: 내가 요리한 식사 기록 (나만 보기·공유 모두)"""
+    __tablename__ = "records"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(60))
+    comment: Mapped[str] = mapped_column(Text, default="")
+    auto_tags: Mapped[list] = mapped_column(JSON, default=list)
+    user_tags: Mapped[list] = mapped_column(JSON, default=list)
+    recipe: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    visibility: Mapped[str] = mapped_column(String(10), default="private")   # private | share
+    photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    photo_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    photo_key: Mapped[str] = mapped_column(String(40), unique=True, index=True)   # 사진 주소용 추측 불가 값
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class RecipeImage(Base):
     """AI 레시피 요리 사진 (요리 이름별로 한 번만 그려서 저장해요)"""
     __tablename__ = "recipe_images"

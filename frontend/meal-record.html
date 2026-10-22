@@ -355,6 +355,7 @@
       <button class="sheet-btn" type="button" id="outSave">사진 저장 · 레시피 글 복사</button>
       <p class="out-note">앱 밖으로 보낸 사진과 글은 받는 사람이나 다른 사람이 볼 수 있어요. 우리 가족 이름과 건강 정보는 들어가지 않아요.</p>
       <button class="sheet-btn ghost" type="button" id="outDone">다른 집 한상 보러 가기</button>
+      <button class="sheet-btn ghost" type="button" id="outBook">나만의 레시피북 보기</button>
     </div>
   </div>
 
@@ -650,6 +651,30 @@
     renderMyTags();
   }
 
+  // 나만의 레시피북 저장: 로그인했으면 서버에, 아니면 이 기기에 (작은 사진으로)
+  async function saveToBook(record) {
+    if (window.HansangAPI && HansangAPI.isLoggedIn()) {
+      try {
+        var fd = new FormData();
+        fd.append('photo', photoBlob, 'meal.jpg');
+        fd.append('data', JSON.stringify(record));
+        await HansangAPI.request('POST', '/api/records', { form: fd, timeout: 90000 });
+        return 'server';
+      } catch (e) { /* 서버를 못 쓰면 이 기기에 */ }
+    }
+    try {
+      var thumb = await smallPhoto(photoBlob);
+      var list = [];
+      try { list = JSON.parse(localStorage.getItem('myRecords') || '[]') || []; } catch (e2) { list = []; }
+      list.unshift({ id: 'local-' + Date.now(), title: record.recipeTitle, comment: record.comment, autoTags: record.autoTags.slice(),
+                     userTags: record.myTags.slice(), recipe: record.recipe, visibility: record.visibility, photoUrl: thumb,
+                     createdAt: new Date().toISOString(), local: true });
+      try { localStorage.setItem('myRecords', JSON.stringify(list.slice(0, 20))); }
+      catch (e3) { localStorage.setItem('myRecords', JSON.stringify(list.slice(0, 3))); }   // 저장 공간이 부족하면 최근 것만
+      return 'local';
+    } catch (e4) { return null; }
+  }
+
   async function submit(vis) {
     if (lockedUI()) return;
     setVis(vis);                                      // 누른 버튼에 맞게 공개 범위 라디오도 맞춰요
@@ -715,9 +740,17 @@
         catch (e3) { localStorage.setItem('sharedPosts', JSON.stringify(posts.slice(0, 1))); }   // 저장 공간이 부족하면 최근 글만 남겨요
       }
 
+      // 나만의 레시피북에도 남겨요 (나만 보기·공유 모두)
+      var inBook = await saveToBook(record);
+
       done = true; doneVis = vis;
-      if (vis !== 'share' || uploaded) show(vis === 'share' ? '다른 사용자에게 공유했어요' : '나만 보기로 저장했어요');
-      if (vis === 'share') setTimeout(openOut, 500);   // 인스타그램·카카오톡으로도 보낼지 물어봐요
+      if (vis === 'share') {
+        if (uploaded) show('다른 사용자에게 공유했어요 · 레시피북에도 담았어요');
+        setTimeout(openOut, 500);   // 인스타그램·카카오톡으로도 보낼지 물어봐요
+      } else {
+        show(inBook === 'server' ? '나만의 레시피북에 저장했어요' : '이 기기의 레시피북에 저장했어요 (로그인하면 어디서나 볼 수 있어요)');
+        setTimeout(function () { location.href = 'recipe-book.html'; }, 1200);
+      }
     } catch (e) {
       show(e && e.message ? e.message : '저장하지 못했어요. 다시 눌러 주세요');
     } finally {
@@ -740,6 +773,7 @@
   function closeOut() { outSheet.classList.remove('open'); }
   $('outBackdrop').addEventListener('click', closeOut);
   $('outDone').addEventListener('click', function () { location.href = 'browse.html'; });
+  $('outBook').addEventListener('click', function () { location.href = 'recipe-book.html'; });
 
   // 보낼 글: 레시피를 함께 공유하기로 했으면 "재료 / 양념 / 만드는법" 형식으로 넣어요
   function shareText() {

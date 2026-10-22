@@ -1,12 +1,12 @@
 /* 온가족 한상 · 화면 연결 (모든 화면 공통)
  * 순서: 회원가입/로그인 → 가족 프로필 → 홈(재료 사진) → 재료 확인 → 오늘의 한상
- *       → 저장한 요리 → 식사 후 의견 → 식사 사진 기록 → 다른 집 한상
+ *       → 식사 후 의견 → 식사 사진 기록 → 다른 집 한상 / 나만의 레시피북
  * 하단 탭(.tab[data-tab])을 눌렀을 때 해당 화면으로 이동해요. 각 화면 스크립트 뒤에 넣어 주세요. */
 (function () {
   var TAB_ROUTES = {
     '홈': 'home.html', 'home': 'home.html',
     '레시피': 'saved-recipes.html', 'recipes': 'saved-recipes.html',
-    '기록': 'meal-record.html',
+    '기록': 'recipe-book.html',
     '둘러보기': 'browse.html',
     '냉장고 촬영': 'home.html', 'camera': 'home.html',
     '내 정보': 'family-profile.html', 'me': 'family-profile.html'
