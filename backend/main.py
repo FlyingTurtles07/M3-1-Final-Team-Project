@@ -75,7 +75,7 @@ def health():
             s.execute(select(1))
     except Exception:
         ok = False
-    return {"ok": ok, "db": ok, "ai": bool(os.getenv("OPENAI_API_KEY")), "images": images.enabled(), "mfds": bool(safety.MFDS_API_KEY)}
+    return {"ok": ok, "db": ok, "ai": bool(os.getenv("OPENAI_API_KEY")), "images": images.enabled(), "vision": vision.enabled(), "mfds": bool(safety.MFDS_API_KEY)}
 
 
 # ---------------------------------------------------------------- 1) 회원
