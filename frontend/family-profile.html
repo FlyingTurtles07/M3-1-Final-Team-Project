@@ -210,7 +210,11 @@
   }
   .sheet-clear[hidden] { display: none; }
 
-  .avatars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px 6px; }
+  .avatars { display: grid; gap: 8px; }
+  .age-row { display: grid; grid-template-columns: 64px 1fr 1fr; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 16px; }
+  .age-row.current { background: #fff6e8; }
+  .age-label { font-size: 14px; font-weight: 800; color: var(--ink-deep); }
+  .avatar { flex-direction: row !important; justify-content: flex-start; gap: 8px !important; font-size: 13.5px !important; }
   .avatar {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     padding: 0; border: 0; background: none; cursor: pointer;
@@ -315,7 +319,7 @@
     </section>
 
     <section class="field" id="fName">
-      <label class="label" for="name">이름 또는 호칭</label>
+      <label class="label" for="name">캐릭터 이름 <span class="opt">(직접 입력)</span></label>
       <input class="text" id="name" type="text" maxlength="20" autocomplete="off" placeholder="예) 아빠, 첫째, 할머니">
       <p class="msg" id="msgName" hidden>이름이나 호칭을 입력해 주세요</p>
     </section>
@@ -407,13 +411,19 @@
     catch (e) { return true; }
   })();
   var MAX_CUSTOM = 6;
-  // characters/ 폴더의 이미지 파일 이름 (확장자 제외)
-  // 이름이 겹치는 캐릭터(아빠2·언니2·동생2)는 빼고 하나씩만 보여줘요
-  var CHARACTERS = ['할아버지', '할머니', '아빠', '엄마1', '아들', '딸',
-                    '형', '오빠', '누나1', '언니1',
-                    '남동생', '여동생1', '동생1', '아기'];
+  // 캐릭터: 연령대(5) × 남녀(2) = 10개. characters/ 폴더의 '연령대_성별.png' (예: 성인_남.png)
+  // 캐릭터에는 호칭을 붙이지 않고, 이름은 사용자가 직접 써요.
+  // (예전에 저장한 '아빠'·'엄마1' 같은 캐릭터도 그림 파일이 남아 있어서 그대로 보여요)
+  var GENDERS = [['남', '남자'], ['여', '여자']];
+  var CHARACTERS = [];
+  AGE.forEach(function (a) { GENDERS.forEach(function (g) { CHARACTERS.push(a + '_' + g[0]); }); });
   function charSrc(c) { return 'characters/' + encodeURIComponent(c) + '.png'; }
-  function charLabel(c) { return c.replace(/\d+$/, ''); }   // '엄마1' → '엄마'
+  function charAge(c) { return c && c.indexOf('_') !== -1 ? c.split('_')[0] : null; }
+  function charGender(c) { return c && c.indexOf('_') !== -1 ? c.split('_')[1] : null; }
+  function charLabel(c) {
+    if (charAge(c)) return charAge(c) + ' \u00b7 ' + (charGender(c) === '남' ? '남자' : '여자');   // '성인_남' → '성인 · 남자'
+    return c.replace(/\d+$/, '');                                                               // 예전 캐릭터: '엄마1' → '엄마'
+  }
 
   // 저장된 가족 목록 (서버 연동 시 이 배열을 전송). 이미 저장한 가족을 불러와서 다시 저장할 때 지워지지 않게 해요
   var members = (function () {
@@ -468,7 +478,7 @@
       edit.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
       slot.appendChild(edit);
       slot.setAttribute('aria-label', charLabel(c) + ' 캐릭터 선택됨. 눌러서 바꾸기');
-      $('slotCap').textContent = charLabel(c);
+      $('slotCap').textContent = state.name.trim() || charLabel(c);   // 이름을 쓰면 캐릭터 아래에 그 이름이 보여요
     } else {
       var plus = document.createElement('span');
       plus.className = 'plus'; plus.textContent = '+';
@@ -492,14 +502,11 @@
   }
   function pickCharacter(c) {
     state.character = c;
-    // 이름이 비어 있으면 캐릭터 호칭으로 채워 줘요
-    if (c && !state.name.trim()) {
-      state.name = charLabel(c);
-      $('name').value = state.name;
-      setError('fName', 'msgName', false);
-    }
+    // 캐릭터의 연령대로 연령대 칸도 맞춰요 (이름은 사용자가 직접 써요)
+    if (charAge(c)) { state.age = charAge(c); renderAge(); }
     renderSlot();
     closeSheet();
+    if (c && !state.name.trim()) $('name').focus();
   }
   $('slot').addEventListener('click', openSheet);
   $('sheetX').addEventListener('click', closeSheet);
@@ -512,19 +519,28 @@
   function renderCharacter() {
     var box = $('character'); box.innerHTML = '';
     $('sheetClear').hidden = !state.character;
-    CHARACTERS.forEach(function (c) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'avatar';
-      b.setAttribute('aria-pressed', state.character === c ? 'true' : 'false');
-      var img = document.createElement('img');
-      img.src = charSrc(c); img.alt = ''; img.loading = 'lazy';
-      var label = document.createElement('span');
-      label.textContent = charLabel(c);
-      b.appendChild(img); b.appendChild(label);
-      b.setAttribute('aria-label', charLabel(c) + ' 캐릭터');
-      b.addEventListener('click', function () { pickCharacter(c); });
-      box.appendChild(b);
+    AGE.forEach(function (a) {
+      var row = document.createElement('div');
+      row.className = 'age-row' + (state.age === a ? ' current' : '');
+      var lab = document.createElement('span');
+      lab.className = 'age-label'; lab.textContent = a;
+      row.appendChild(lab);
+      GENDERS.forEach(function (g) {
+        var c = a + '_' + g[0];
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'avatar';
+        b.setAttribute('aria-pressed', state.character === c ? 'true' : 'false');
+        var img = document.createElement('img');
+        img.src = charSrc(c); img.alt = ''; img.loading = 'lazy';
+        var label = document.createElement('span');
+        label.textContent = g[1];
+        b.appendChild(img); b.appendChild(label);
+        b.setAttribute('aria-label', a + ' ' + g[1] + ' 캐릭터');
+        b.addEventListener('click', function () { pickCharacter(c); });
+        row.appendChild(b);
+      });
+      box.appendChild(row);
     });
   }
   // 연령대: 드롭다운 목록에서 하나를 골라요
@@ -544,6 +560,11 @@
   $('age').addEventListener('change', function (e) {
     state.age = e.target.value || null;
     e.target.classList.toggle('empty', !state.age);
+    // 연령대 캐릭터를 골라 둔 상태면 같은 성별의 새 연령대 캐릭터로 바꿔요
+    if (state.age && charGender(state.character) && charAge(state.character) !== state.age) {
+      state.character = state.age + '_' + charGender(state.character);
+      renderSlot();
+    }
   });
   function renderNote() {
     $('note').value = state.note;
@@ -751,6 +772,7 @@
   $('name').addEventListener('input', function (e) {
     state.name = e.target.value;
     if (e.target.value.trim()) setError('fName', 'msgName', false);
+    if (state.character) renderSlot();
   });
 
   /* ---------- 기타 (직접 쓰기) ---------- */
