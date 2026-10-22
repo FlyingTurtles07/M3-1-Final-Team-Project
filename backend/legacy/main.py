@@ -65,7 +65,7 @@ async def safety_report(req: ReportReq):
         raise HTTPException(502, "보고서를 만들지 못했어요. 잠시 후 다시 시도해 주세요.")
 
 
-# 프론트 화면 파일 (../파이널) — API 경로보다 뒤에 붙여야 /api 가 가려지지 않아요
-FRONT = Path(__file__).resolve().parent.parent / "파이널"
+# 프론트 화면 파일 (../frontend) — API 경로보다 뒤에 붙여야 /api 가 가려지지 않아요
+FRONT = Path(__file__).resolve().parent.parent / "frontend"
 if FRONT.is_dir():
     app.mount("/", StaticFiles(directory=FRONT, html=True), name="front")

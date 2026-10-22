@@ -871,7 +871,7 @@
   // 가족 별칭과 캐릭터 그림만 보내요 (알레르기·식사 조건 같은 건강 정보는 보내지 않아요)
   function shareMembers() {
     return (members || []).filter(function (m) { return m && m.name; }).map(function (m) {
-      return { name: String(m.name).slice(0, 12), avatar: m.character ? 'characters/' + encodeURIComponent(m.character) + '.png' : null };
+      return { name: String(m.name).slice(0, 12), avatar: HansangAPI.charSrc(m.character) };
     });
   }
   function savedSender() {

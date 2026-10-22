@@ -73,9 +73,21 @@
     try { await request('PUT', '/api/me/data/' + key, { json: { data: data } }); return true; } catch (e) { return false; }
   }
 
+  // 캐릭터 그림: 저장하는 캐릭터 값은 '성인_남'처럼 그대로 두고, 파일 이름만 영어예요 (characters/adult_m.png)
+  var CHAR_FILES = {
+    '영유아_남': 'infant_m', '영유아_여': 'infant_f', '어린이_남': 'child_m', '어린이_여': 'child_f',
+    '청소년_남': 'teen_m', '청소년_여': 'teen_f', '성인_남': 'adult_m', '성인_여': 'adult_f',
+    '어르신_남': 'senior_m', '어르신_여': 'senior_f', '아빠': 'dad', '아빠2': 'dad2',
+    '엄마1': 'mom1', '아들': 'son', '딸': 'daughter', '아기': 'baby',
+    '형': 'older_brother_hyung', '오빠': 'older_brother_oppa', '남동생': 'younger_brother', '누나1': 'older_sister_nuna1',
+    '언니1': 'older_sister_eonni1', '언니2': 'older_sister_eonni2', '여동생1': 'younger_sister1', '동생1': 'sibling1',
+    '동생2': 'sibling2', '할머니': 'grandma', '할아버지': 'grandpa'
+  };
+  function charSrc(c) { return c && CHAR_FILES[c] ? 'characters/' + CHAR_FILES[c] + '.png' : null; }
+
   window.HansangAPI = {
     base: BASE, token: token, user: user, isLoggedIn: function () { return !!token(); },
-    siteUrl: siteUrl, setSession: setSession, clearSession: clearSession, request: request, loadDoc: loadDoc, saveDoc: saveDoc,
+    siteUrl: siteUrl, charSrc: charSrc, setSession: setSession, clearSession: clearSession, request: request, loadDoc: loadDoc, saveDoc: saveDoc,
     absUrl: function (u) { return u && /^https?:|^data:|^blob:/.test(u) ? u : u; }
   };
 })();
