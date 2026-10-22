@@ -9,7 +9,7 @@ import json
 import logging
 import os
 
-from recipes import PROCESSED
+from recipes import PROCESSED, parse_json
 
 log = logging.getLogger("hansang.vision")
 MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
@@ -49,7 +49,8 @@ def _clean(names) -> list[str]:
 async def analyze(photos: list[tuple[str, bytes, str]]) -> dict:
     """photos: [(kind: 'fridge'|'receipt', bytes, mime)]"""
     kinds = [k for k, _, _ in photos]
-    if not os.getenv("OPENAI_API_KEY"):
+    # OPENAI_VISION=false: 사진 입력을 지원하지 않는 키(예: 코디세이)면 AI를 부르지 않고 예시 결과를 써요
+    if not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_VISION", "true").lower() == "false":
         return _sample(kinds)
     try:
         from openai import AsyncOpenAI
@@ -57,12 +58,9 @@ async def analyze(photos: list[tuple[str, bytes, str]]) -> dict:
         content = [{"type": "text", "text": PROMPT.format(kinds=", ".join("냉장고" if k == "fridge" else "영수증" for k in kinds))}]
         for _kind, data, mime in photos:
             b64 = base64.b64encode(data).decode()
-            content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}", "detail": "low"}})
-        res = await client.chat.completions.create(
-            model=MODEL, response_format={"type": "json_object"}, temperature=0,
-            messages=[{"role": "user", "content": content}],
-        )
-        data = json.loads(res.choices[0].message.content or "{}")
+            content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
+        res = await client.chat.completions.create(model=MODEL, messages=[{"role": "user", "content": content}])
+        data = parse_json(res.choices[0].message.content or "")
         items, suspect, dropped = _clean(data.get("items")), _clean(data.get("suspect")), _clean(data.get("dropped"))
         # 가공식품·양념은 재고에서 빼요
         dropped += [x for x in items + suspect if x in PROCESSED and x not in dropped]

@@ -32,6 +32,12 @@ services:
         value: "*"
       - key: OPENAI_API_KEY      # 대시보드에서 직접 넣어요 (비워 두면 예시 레시피·예시 재료 인식)
         sync: false
+      - key: OPENAI_BASE_URL     # 코디세이: https://copa.codyssey.kr/v1 (OpenAI 그대로 쓰면 비워 두기)
+        sync: false
+      - key: OPENAI_MODEL        # 코디세이에서 빠르고 안정적인 모델
+        value: gpt-5.4-mini
+      - key: OPENAI_VISION       # 코디세이 키는 사진 입력을 지원하지 않아서 꺼 둬요
+        value: "false"
       - key: MFDS_API_KEY        # 공공데이터포털 식품영양성분DB 키 (비워 두면 기본 수치로 검사)
         sync: false
 

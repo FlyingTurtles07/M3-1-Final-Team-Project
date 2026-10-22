@@ -115,20 +115,33 @@ JSON만 답해:
  "steps":["…","…"],"adds":[["소고기"],["무"]],"saltAt":1}}]}}"""
 
 
+def parse_json(text: str) -> dict:
+    """AI 답에서 JSON만 꺼내요 (```json … ``` 같은 감싼 글이 있어도 괜찮게)"""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", text)
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        return {}
+    try:
+        return json.loads(text[start:end + 1])
+    except ValueError:
+        return {}
+
+
 async def ai_recommend(ingredients: list[str], exclude_titles: list[str], count: int = 3) -> list[dict]:
     if not os.getenv("OPENAI_API_KEY"):
         return []
     try:
         from openai import AsyncOpenAI
-        client = AsyncOpenAI(timeout=40)
+        client = AsyncOpenAI(timeout=float(os.getenv("OPENAI_TIMEOUT", "40")), max_retries=1)
+        # temperature·JSON 모드는 쓰지 않아요 (코디세이 등 일부 OpenAI 호환 서버가 지원하지 않아요)
         res = await client.chat.completions.create(
             model=OPENAI_MODEL,
-            response_format={"type": "json_object"},
-            temperature=0.7,
             messages=[{"role": "user", "content": PROMPT.format(
                 ingredients=", ".join(ingredients) or "(없음)", exclude=", ".join(exclude_titles) or "(없음)", count=count)}],
         )
-        data = json.loads(res.choices[0].message.content or "{}")
+        data = parse_json(res.choices[0].message.content or "")
         out = []
         for raw in data.get("recipes", []):
             r = _clean_recipe(raw, ingredients)

@@ -30,7 +30,14 @@ BASE_NUTRITION = {
     "정수물": (0, 0), "물": (0, 0), "소금": (39000, 0), "간장": (5700, 3), "진간장": (5700, 3), "국간장": (6900, 2),
     "된장": (4400, 6), "고추장": (2500, 20), "참기름": (0, 0), "식용유": (0, 0), "간마늘": (3, 1), "마늘": (3, 1),
     "통깨": (10, 0.3), "굵은고춧가루": (20, 10), "고춧가루": (20, 10), "설탕": (0, 100), "올리고당": (10, 70), "케첩": (1000, 22),
+    "후추": (40, 0.6), "깨": (10, 0.3), "들기름": (0, 0), "맛술": (300, 20), "식초": (5, 0.5), "물엿": (20, 70),
+    "양조간장": (5700, 3), "생강": (13, 1.7), "청주": (5, 3), "애호박전용부침가루": (800, 2), "밀가루": (2, 0.3), "부침가루": (900, 2),
+    "버섯": (5, 1.0), "느타리버섯": (5, 1.0), "팽이버섯": (5, 0.2), "새송이버섯": (5, 1.0), "고추": (3, 3), "홍고추": (3, 4),
+    "닭다리살": (90, 0), "돼지고기": (60, 0), "멸치육수": (300, 0), "다시마": (2500, 0), "멸치": (2000, 0),
 }
+# 이름이 조금 달라도 같은 재료로 찾아요 (예: "다진 마늘" → 마늘, "소고기 국거리" → 소고기)
+PREFIXES = ("다진", "간", "굵은", "채썬", "송송썬", "얇게썬", "깍둑썬", "데친", "삶은", "볶은")
+ALIASES = {"쇠고기": "소고기", "계란": "달걀", "파": "대파", "쪽파": "대파", "물": "정수물", "참깨": "통깨"}
 LIMITS = {
     "sodium_mg_per_serving": float(os.getenv("LIMIT_SODIUM_MG", "800")),   # 저염식 1인분 나트륨 한도 (임시)
     "sugar_g_per_serving": float(os.getenv("LIMIT_SUGAR_G", "10")),        # 당뇨식 1인분 당류 한도 (임시)
@@ -67,12 +74,28 @@ async def _mfds(name: str) -> tuple[float, float] | None:
     return val
 
 
+def _candidates(name: str) -> list[str]:
+    n = name.replace(" ", "")
+    out = [name, n]
+    for pre in PREFIXES:
+        if n.startswith(pre) and len(n) > len(pre):
+            out.append(n[len(pre):])
+    out += [ALIASES[x] for x in list(out) if x in ALIASES]
+    first = name.split()[0] if " " in name else None     # "소고기 국거리" → 소고기
+    if first:
+        out.append(ALIASES.get(first, first))
+    return list(dict.fromkeys(out))
+
+
 async def nutrition(name: str) -> tuple[float, float] | None:
-    if MFDS_API_KEY:
-        v = await _mfds(name)
-        if v is not None:
-            return v
-    return BASE_NUTRITION.get(name)
+    for cand in _candidates(name):
+        if MFDS_API_KEY:
+            v = await _mfds(cand)
+            if v is not None:
+                return v
+        if cand in BASE_NUTRITION:
+            return BASE_NUTRITION[cand]
+    return None
 
 
 def _allergy_hits(recipe: dict, members: list[dict]) -> list[str]:
