@@ -57,9 +57,12 @@
   }
 
   .brand {
-    position: relative; z-index: 1; margin-top: 20px; padding: 18px 20px 8px;
+    position: relative; z-index: 1; margin-top: 20px; padding: 8px 20px 4px 4px;
     display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--ink);
   }
+  .back { flex: none; width: 44px; height: 44px; margin-right: -4px; border: 0; background: none; cursor: pointer; color: var(--ink-deep); display: grid; place-items: center; }
+  .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .back:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; border-radius: 10px; }
   .brand i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 
   .scroll {
@@ -122,7 +125,10 @@
 <body>
 <main class="phone">
   <div class="scrim"></div>
-  <div class="brand"><i aria-hidden="true"></i>온가족 한상</div>
+  <div class="brand">
+    <button class="back" type="button" id="back" aria-label="뒤로 가기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8"/></svg></button>
+    <i aria-hidden="true"></i>온가족 한상
+  </div>
 
   <div class="scroll">
     <section class="state" id="state" aria-live="polite">
@@ -217,6 +223,8 @@
     $('state').hidden = true; $('post').hidden = false; $('help').hidden = false;
   }
 
+  // 뒤로 가기: 이전 화면, QR로 바로 열었으면 온가족 한상 첫 화면으로
+  $('back').addEventListener('click', function () { if (history.length > 1) history.back(); else location.href = 'index.html'; });
   $('start').addEventListener('click', function () { location.href = 'index.html'; });
   $('more').addEventListener('click', function () { location.href = 'browse.html'; });
   load();

@@ -57,12 +57,13 @@
   .scrim { position: absolute; inset: 0; pointer-events: none; background: rgba(253, 246, 236, .9); }
 
   .head {
-    position: relative; z-index: 1; margin-top: 20px; padding: 16px 20px 12px;
-    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--soft-line);
+    position: relative; z-index: 1; margin-top: 20px; padding: 10px 20px 8px 4px;
+    display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--soft-line);
   }
   .head h1 { margin: 0; font-size: 17px; font-weight: 800; color: var(--ink-deep); }
-  .logo { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; }
-  .logo svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .back { flex: none; width: 44px; height: 44px; border: 0; background: none; cursor: pointer; color: var(--ink-deep); display: grid; place-items: center; }
+  .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .back:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; border-radius: 10px; }
 
   .scroll {
     position: relative; z-index: 1; flex: 1; min-height: 0;
@@ -191,7 +192,7 @@
 <main class="phone">
   <div class="scrim"></div>
   <header class="head">
-    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 11h16a8 8 0 0 1-16 0z"/><path d="M9 7.500c0-1 1-1.500 1-2.500M14 7.500c0-1 1-1.500 1-2.500"/></svg></span>
+    <button class="back" type="button" id="back" aria-label="뒤로 가기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8"/></svg></button>
     <h1 id="headTitle">오늘 한상, 어땠나요?</h1>
   </header>
 
@@ -408,6 +409,12 @@
     if (r.symptom) sum.appendChild(el('p', 'sym-sent', sender() + '에게만 알린 증상: ' + symList(r.symptom)));
     $('scroll').scrollTop = 0;
   }
+  // 뒤로 가기: 의견을 고치던 중이면 '전달했어요' 화면으로, 아니면 이전 화면(없으면 온가족 한상 첫 화면)으로
+  $('back').addEventListener('click', function () {
+    var mine = loadMine();
+    if (!$('form').hidden && mine) { showDone(mine); return; }
+    if (history.length > 1) history.back(); else location.href = 'index.html';
+  });
   $('editBtn').addEventListener('click', function () { showForm(loadMine()); });
   $('otherBtn').addEventListener('click', function () { showForm(null); });
 
