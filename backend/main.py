@@ -24,11 +24,12 @@ from pydantic import BaseModel, Field  # noqa: E402
 from sqlalchemy import func, select  # noqa: E402
 from sqlalchemy.exc import IntegrityError  # noqa: E402
 
+import images  # noqa: E402
 import recipes  # noqa: E402
 import safety  # noqa: E402
 import vision  # noqa: E402
 from auth import check_password, hash_password, make_token, optional_user, require_user  # noqa: E402
-from db import Feedback, Post, PostLike, Report, SessionLocal, User, UserDoc, init_db, now  # noqa: E402
+from db import Feedback, Post, PostLike, RecipeImage, Report, SessionLocal, User, UserDoc, init_db, now  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("hansang")
@@ -74,7 +75,7 @@ def health():
             s.execute(select(1))
     except Exception:
         ok = False
-    return {"ok": ok, "db": ok, "ai": bool(os.getenv("OPENAI_API_KEY")), "mfds": bool(safety.MFDS_API_KEY)}
+    return {"ok": ok, "db": ok, "ai": bool(os.getenv("OPENAI_API_KEY")), "images": images.enabled(), "mfds": bool(safety.MFDS_API_KEY)}
 
 
 # ---------------------------------------------------------------- 1) 회원
@@ -392,3 +393,51 @@ class SafetyReq(BaseModel):
 @app.post("/api/safety/check")
 async def safety_check(req: SafetyReq):
     return await safety.check_recipe(req.recipe, [m.model_dump() for m in req.members])
+
+
+# ---------------------------------------------------------------- AI 레시피 요리 사진 (gpt-image-2)
+class RecipeImageReq(BaseModel):
+    title: str = Field(min_length=1, max_length=60)
+    ingredients: list[str] = Field(default_factory=list)
+
+
+def _image_url(request: Request, image_id: int) -> str:
+    return f"{_base(request)}/api/recipe-images/{image_id}"
+
+
+@app.post("/api/recipes/image")
+async def recipe_image(req: RecipeImageReq, request: Request):
+    """요리 사진을 돌려줘요. 이미 그린 요리면 저장된 사진을, 처음이면 새로 그려요."""
+    key = images.title_key(req.title)
+    with SessionLocal() as s:
+        found = s.scalar(select(RecipeImage).where(RecipeImage.key == key))
+        if found:
+            return {"url": _image_url(request, found.id), "cached": True}
+    if not images.enabled():
+        raise HTTPException(503, "요리 사진을 만들 수 없어요")
+    async with images.lock_for(key):      # 같은 요리를 동시에 두 번 그리지 않게
+        with SessionLocal() as s:
+            found = s.scalar(select(RecipeImage).where(RecipeImage.key == key))
+            if found:
+                return {"url": _image_url(request, found.id), "cached": True}
+        data = await images.generate(req.title, [str(x)[:20] for x in req.ingredients][:8])
+        if not data:
+            raise HTTPException(502, "요리 사진을 만들지 못했어요")
+        with SessionLocal() as s:
+            row = RecipeImage(key=key, title=req.title[:80], image=data)
+            s.add(row)
+            try:
+                s.commit()
+            except IntegrityError:
+                s.rollback()
+                row = s.scalar(select(RecipeImage).where(RecipeImage.key == key))
+            return {"url": _image_url(request, row.id), "cached": False}
+
+
+@app.get("/api/recipe-images/{image_id}")
+def get_recipe_image(image_id: int):
+    with SessionLocal() as s:
+        row = s.get(RecipeImage, image_id)
+        if not row:
+            raise HTTPException(404, "사진이 없어요")
+        return Response(row.image, media_type=row.mime, headers={"Cache-Control": "public, max-age=604800"})

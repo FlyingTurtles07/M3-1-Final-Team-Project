@@ -107,5 +107,16 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class RecipeImage(Base):
+    """AI 레시피 요리 사진 (요리 이름별로 한 번만 그려서 저장해요)"""
+    __tablename__ = "recipe_images"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)   # 띄어쓰기 뺀 요리 이름
+    title: Mapped[str] = mapped_column(String(80))
+    image: Mapped[bytes] = mapped_column(LargeBinary)
+    mime: Mapped[str] = mapped_column(String(30), default="image/jpeg")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)

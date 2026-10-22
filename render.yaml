@@ -38,6 +38,10 @@ services:
         value: gpt-5.4-mini
       - key: OPENAI_VISION       # 코디세이 키는 사진 입력을 지원하지 않아서 꺼 둬요
         value: "false"
+      - key: IMAGE_MODEL         # AI 레시피 요리 사진 (코디세이 그림 API)
+        value: gpt-image-2
+      - key: IMAGE_MAX_PER_HOUR  # 한 시간에 새로 그리는 최대 장수 (비용 안전장치)
+        value: "40"
       - key: MFDS_API_KEY        # 공공데이터포털 식품영양성분DB 키 (비워 두면 기본 수치로 검사)
         sync: false
 
