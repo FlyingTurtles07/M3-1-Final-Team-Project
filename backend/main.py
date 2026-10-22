@@ -315,31 +315,91 @@ def feedback(req: FeedbackReq, uid: int | None = Depends(optional_user)):
 
 # ---------------------------------------------------------------- 가족 의견 링크 (카카오톡 단톡방에 보내는 링크)
 # 받은 사람은 가입 없이 링크만 열어서 의견을 남겨요. 화면에는 메뉴 이름·사진·가족 별칭만 보여요 (건강 정보 없음).
-SHARE_MAX_RESPONSES = 30
+# '먹고 몸이 불편했어요' 신고는 건강 정보라서 링크를 보낸 사람(보호자)만 볼 수 있어요.
+SHARE_CHIPS = ["맛있었어요", "또 먹고 싶어요", "간이 싱거워요", "간이 짜요", "씹기 편했어요", "씹기 힘들어요", "남겼어요"]
+SYMPTOMS = ["입 주변이 가려워요", "두드러기가 났어요", "얼굴·입술이 부었어요", "배가 아파요", "토했어요", "숨쉬기 힘들어요"]
+AVATAR_RE = re.compile(r"^characters/[^/\\?#]{1,40}\.png$")
+
+
+class ShareMember(BaseModel):
+    name: str = Field(min_length=1, max_length=12)
+    avatar: str | None = None
 
 
 class ShareReq(BaseModel):
     postId: int
     recordId: int | None = None
-    members: list[str] = Field(default_factory=list)
+    members: list[ShareMember] = Field(default_factory=list)
+    sender: str = Field(default="", max_length=12)
 
 
-class ShareFeedbackReq(BaseModel):
-    answers: dict[str, str] = Field(default_factory=dict)   # {가족 별칭: 'ate' | 'left'}
+class ShareUpdateReq(BaseModel):
+    active: bool | None = None
+    sender: str | None = Field(default=None, max_length=12)
+    reflect: bool | None = None
+
+
+class Symptom(BaseModel):
+    items: list[str] = Field(default_factory=list)
+    text: str = Field(default="", max_length=100)
+
+
+class ShareResponseReq(BaseModel):
+    member: str
+    rating: int = Field(ge=1, le=5)
+    chips: list[str] = Field(default_factory=list)
     comment: str = Field(default="", max_length=200)
+    symptom: Symptom | None = None
+    consent: bool = False
 
 
-class ShareActiveReq(BaseModel):
-    active: bool
+class ResponseUpdateReq(BaseModel):
+    ack: bool | None = None
+    suspects: list[str] | None = None
 
 
-def _share_out(s: dict, base: str) -> dict:
+def _iso(t):
+    return t.isoformat() if t else None
+
+
+def _share_out(s: dict, base: str, owner: bool = False) -> dict:
     p = fstore.get_post(s["post_id"])
-    photo = None
+    photo, recipe = None, None
     if p and not p.get("hidden"):
         photo = f"{base}/api/posts/{p['id']}/photo" if p.get("has_photo") else p.get("photo_url")
-    return {"token": s["token"], "title": s["title"], "members": s.get("members") or [], "active": bool(s.get("active")),
-            "postId": s["post_id"], "photoUrl": photo}
+        recipe = p.get("recipe")
+    out = {"token": s["token"], "title": s["title"], "sender": s.get("sender") or "가족", "members": s.get("members") or [],
+           "active": bool(s.get("active")), "open": fstore.share_open(s), "expiresAt": _iso(s.get("expires_at")),
+           "postId": s["post_id"], "photoUrl": photo}
+    if owner:
+        out["reflect"] = bool(s.get("reflect", True))
+        out["recordId"] = s.get("record_id")
+        rec = recipe or {}
+        out["ingredients"] = [x[0] for x in rec.get("ing") or []] or list(rec.get("ingredients") or [])
+    return out
+
+
+def _resp_out(r: dict) -> dict:
+    return {"idx": r["idx"], "member": r["member"], "avatar": r.get("avatar"), "rating": r.get("rating"), "chips": r.get("chips") or [],
+            "comment": r.get("comment") or "", "symptom": r.get("symptom"), "ack": bool(r.get("ack")),
+            "suspects": r.get("suspects") or [], "createdAt": _iso(r.get("created_at")), "updatedAt": _iso(r.get("updated_at"))}
+
+
+def _own_share(token: str, uid: int) -> dict:
+    s = fstore.get_share(token)
+    if not s or s.get("user_id") != uid:
+        raise HTTPException(404, "없는 링크예요")
+    return s
+
+
+def _clean_members(members: list[ShareMember]) -> list[dict]:
+    out, seen = [], set()
+    for m in members:
+        name = m.name.strip()[:12]
+        if name and name not in seen:
+            seen.add(name)
+            out.append({"name": name, "avatar": m.avatar if m.avatar and AVATAR_RE.match(m.avatar) else None})
+    return out[:10] or [{"name": "가족", "avatar": None}]
 
 
 @app.post("/api/shares")
@@ -347,20 +407,18 @@ def create_share(request: Request, req: ShareReq, uid: int = Depends(require_use
     p = fstore.get_post(req.postId)
     if not p or p.get("user_id") != uid:
         raise HTTPException(404, "내가 올린 글만 링크로 보낼 수 있어요")
-    s = fstore.find_share(uid, req.postId)   # 같은 글이면 같은 링크를 다시 써요
+    members, sender = _clean_members(req.members), req.sender.strip()[:12]
+    s = fstore.find_share(uid, req.postId)   # 같은 글이면 같은 링크를 다시 써요 (닫혀 있으면 하루 더 열어요)
     if s:
-        if not s.get("active"):
-            fstore.set_share_active(s["token"], True)
-            s["active"] = True
+        fields = {"members": members, "sender": sender or s.get("sender", "")}
+        if req.recordId and not s.get("record_id"):
+            fields["record_id"] = req.recordId
+        fstore.update_share(s["token"], renew=not fstore.share_open(s), **fields)
+        s = fstore.get_share(s["token"])
     else:
-        names = []
-        for n in req.members:
-            n = str(n).strip()[:12]
-            if n and n not in names:
-                names.append(n)
         s = fstore.add_share(secrets.token_urlsafe(9), user_id=uid, post_id=req.postId, record_id=req.recordId,
-                             title=p["title"], members=names[:10])
-    return _share_out(s, _base(request))
+                             title=p["title"], members=members, sender=sender)
+    return _share_out(s, _base(request), owner=True)
 
 
 @app.get("/api/shares/{token}")
@@ -372,29 +430,99 @@ def get_share(request: Request, token: str):
 
 
 @app.put("/api/shares/{token}")
-def set_share(token: str, req: ShareActiveReq, uid: int = Depends(require_user)):
-    s = fstore.get_share(token)
-    if not s or s.get("user_id") != uid:
-        raise HTTPException(404, "없는 링크예요")
-    fstore.set_share_active(token, req.active)
-    return {"ok": True, "active": req.active}
+def update_share(request: Request, token: str, req: ShareUpdateReq, uid: int = Depends(require_user)):
+    """링크 끄기·다시 켜기(하루 연장)·보내는 사람·다음 추천에 반영하기"""
+    _own_share(token, uid)
+    fields = {}
+    if req.sender is not None:
+        fields["sender"] = req.sender.strip()[:12]
+    if req.reflect is not None:
+        fields["reflect"] = req.reflect
+    if req.active is False:
+        fields["active"] = False
+    fstore.update_share(token, renew=req.active is True, **fields)
+    return _share_out(fstore.get_share(token), _base(request), owner=True)
 
 
-@app.post("/api/shares/{token}/feedback")
-def share_feedback(token: str, req: ShareFeedbackReq):
+@app.post("/api/shares/{token}/responses")
+def share_response(token: str, req: ShareResponseReq):
+    """받은 사람이 남기는 의견. 가족 한 명당 하나라서 다시 보내면 고쳐져요."""
     s = fstore.get_share(token)
     if not s:
         raise HTTPException(404, "없는 링크예요")
-    if not s.get("active"):
-        raise HTTPException(410, "보낸 사람이 링크를 꺼서 의견을 남길 수 없어요")
+    if not fstore.share_open(s):
+        raise HTTPException(410, "링크가 닫혀서 지금은 의견을 남길 수 없어요")
+    if not req.consent:
+        raise HTTPException(400, "의견을 전달하는 데 동의해 주세요")
     members = s.get("members") or []
-    answers = {k: v for k, v in req.answers.items() if v in ("ate", "left") and (k in members or not members)}
-    comment = req.comment.strip()
-    if not answers and not comment:
-        raise HTTPException(400, "먹은 정도를 고르거나 남기고 싶은 말을 적어 주세요")
-    if not fstore.add_share_feedback(token, s["user_id"], s["title"], answers, comment, SHARE_MAX_RESPONSES):
-        raise HTTPException(429, "이 링크로 받을 수 있는 의견이 가득 찼어요")
+    idx = next((i for i, m in enumerate(members) if m["name"] == req.member), None)
+    if idx is None:
+        raise HTTPException(400, "누가 먹었는지 골라 주세요")
+    symptom = None
+    if req.symptom and (req.symptom.items or req.symptom.text.strip()):
+        symptom = {"items": [x for x in req.symptom.items if x in SYMPTOMS], "text": req.symptom.text.strip()[:100]}
+    r = fstore.put_response(token, idx, owner_id=s["user_id"], member=req.member, avatar=members[idx].get("avatar"),
+                            rating=req.rating, chips=[c for c in SHARE_CHIPS if c in req.chips], comment=req.comment.strip(),
+                            symptom=symptom)
+    return {"ok": True, "sender": s.get("sender") or "가족", "expiresAt": _iso(s.get("expires_at")), "response": _resp_out(r)}
+
+
+@app.get("/api/shares/{token}/reactions")
+def share_reactions(request: Request, token: str, uid: int = Depends(require_user)):
+    """가족 반응 화면 (링크를 보낸 사람만)"""
+    s = _own_share(token, uid)
+    return {"share": _share_out(s, _base(request), owner=True), "responses": [_resp_out(r) for r in fstore.responses_of(token)]}
+
+
+@app.put("/api/shares/{token}/responses/{idx}")
+def update_share_response(token: str, idx: int, req: ResponseUpdateReq, uid: int = Depends(require_user)):
+    _own_share(token, uid)
+    fields = {}
+    if req.ack is not None:
+        fields["ack"] = req.ack
+    if req.suspects is not None:
+        fields["suspects"] = [str(x)[:20] for x in req.suspects][:10]
+    if not fstore.update_response(token, idx, **fields):
+        raise HTTPException(404, "없는 의견이에요")
     return {"ok": True}
+
+
+@app.delete("/api/shares/{token}/responses/{idx}")
+def delete_share_response(token: str, idx: int, uid: int = Depends(require_user)):
+    _own_share(token, uid)
+    fstore.delete_response(token, idx)
+    return {"ok": True}
+
+
+def _share_summary(s: dict, rows: list[dict]) -> dict:
+    ratings = [r["rating"] for r in rows if r.get("rating")]
+    return {"token": s["token"], "active": bool(s.get("active")), "open": fstore.share_open(s), "postId": s["post_id"],
+            "count": len(rows), "members": len(s.get("members") or []),
+            "avg": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "alerts": sum(1 for r in rows if r.get("symptom") and not r.get("ack"))}
+
+
+def taste_notes(uid: int) -> str:
+    """'다음 추천에 반영하기'를 켠 링크의 맛 반응만 짧게 모아요 (몸 불편 신고 같은 건강 정보는 AI에 보내지 않아요)"""
+    shares = sorted([s for s in fstore.shares_of(uid) if s.get("reflect", True)], key=lambda s: s["created_at"], reverse=True)[:5]
+    if not shares:
+        return ""
+    by = fstore.responses_by_share(uid)
+    lines = []
+    for s in shares:
+        rows = by.get(s["token"]) or []
+        if not rows:
+            continue
+        avg = sum(r.get("rating") or 0 for r in rows) / len(rows)
+        counts = {}
+        for r in rows:
+            for c in r.get("chips") or []:
+                counts[c] = counts.get(c, 0) + 1
+        chips = ", ".join(f"{c} {n}명" for c, n in counts.items())
+        # 몸 불편 신고를 한 사람의 글은 증상이 섞여 있을 수 있어서 빼요
+        cmts = " / ".join((r.get("comment") or "")[:40] for r in rows if r.get("comment") and not r.get("symptom"))[:160]
+        lines.append(f"- {s['title']}: 별점 {avg:.1f}" + (f", {chips}" if chips else "") + (f", 의견: {cmts}" if cmts else ""))
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- 3) AI: 사진 재료 인식 · 레시피 추천
@@ -433,11 +561,17 @@ class RecommendReq(BaseModel):
 
 
 @app.post("/api/recipes/recommend")
-async def recommend(req: RecommendReq):
+async def recommend(req: RecommendReq, uid: int | None = Depends(optional_user)):
     count = max(1, min(req.count, 3))
     ingredients = recipes.stock_only(req.ingredients)
     # 추천은 재료만으로: AI가 먼저 만들고, 모자라면 기본 레시피에서 채워요
-    picked = await recipes.ai_recommend(ingredients, req.excludeTitles, count)
+    notes = ""
+    if uid:
+        try:
+            notes = await run_in_threadpool(taste_notes, uid)
+        except Exception:
+            log.exception("가족 반응을 불러오지 못했어요")
+    picked = await recipes.ai_recommend(ingredients, req.excludeTitles, count, notes)
     if len(picked) < count:
         exclude = list(req.excludeIds) + [r["id"] for r in picked]
         for r in recipes.rank_pool(ingredients, exclude, count):
@@ -502,9 +636,7 @@ def _record_out(r: dict, base: str, share: dict | None = None, responses: list[d
            "photoUrl": f"{base}/api/records/photo/{r['photo_key']}" if r.get("has_photo") else None,
            "createdAt": created.isoformat() if created else None}
     if share:
-        out["share"] = {"token": share["token"], "active": bool(share.get("active")), "postId": share["post_id"]}
-        out["responses"] = [{"answers": x["answers"], "comment": x["comment"],
-                             "createdAt": x["created_at"].isoformat() if x["created_at"] else None} for x in responses or []]
+        out["share"] = _share_summary(share, responses or [])
     return out
 
 
@@ -512,7 +644,7 @@ def _record_out(r: dict, base: str, share: dict | None = None, responses: list[d
 def list_records(request: Request, uid: int = Depends(require_user)):
     base = _base(request)
     shares = {s.get("record_id"): s for s in fstore.shares_of(uid) if s.get("record_id")}
-    responses = fstore.share_responses(uid) if shares else {}
+    responses = fstore.responses_by_share(uid) if shares else {}
     out = []
     for r in fstore.list_records(uid):
         s = shares.get(r["id"])

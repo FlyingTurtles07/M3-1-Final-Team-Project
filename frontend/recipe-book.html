@@ -220,12 +220,10 @@
   .fam-head b { font-size: 13.5px; font-weight: 800; color: var(--ink-deep); }
   .fam-copy { flex: none; height: 30px; padding: 0 10px; border: 1.5px solid #e2c9a3; border-radius: 15px; background: #fff; color: #8a4a12; font-size: 12px; font-weight: 800; cursor: pointer; }
   .fam-copy:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .fam-alert { margin: 8px 0 0; padding: 7px 10px; border-radius: 10px; background: #fdecec; color: #c62828; font-size: 12.5px; font-weight: 800; }
+  .fam-go { display: block; width: 100%; height: 38px; margin-top: 8px; border: 0; border-radius: 12px; background: #fff; color: #8a4a12; font-size: 13px; font-weight: 800; cursor: pointer; }
+  .fam-go:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   .fam-empty { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; font-weight: 600; color: var(--muted); }
-  .fam ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
-  .fam li { padding: 7px 10px; border-radius: 10px; background: #fff; font-size: 12.5px; line-height: 1.5; font-weight: 700; color: var(--ink-deep); overflow-wrap: anywhere; }
-  .fam li .who { color: #5b6b2c; }
-  .fam li .left { color: #a8561c; }
-  .fam li q { display: block; margin-top: 2px; font-weight: 600; color: #3b2a24; }
   .rec .local { margin-top: 8px; font-size: 11.5px; font-weight: 700; color: #9a5a00; }
   .new-rec { display: block; width: 100%; height: 50px; margin-top: 14px; border-radius: 26px; border: 2px dashed #b0775f; background: rgba(255,255,255,.85); color: var(--ink-deep); font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; }
 </style>
@@ -380,38 +378,28 @@
     return c;
   }
 
-  // 카카오톡으로 보낸 링크에 가족이 남긴 의견
-  var RESULT = { ate: '잘 먹었어요', left: '남겼어요' };
+  // 카카오톡으로 보낸 링크에 가족이 남긴 의견 (자세한 건 '가족 반응' 화면에서)
   function familyBox(r) {
-    var box = el('div', 'fam'), head = el('div', 'fam-head'), list = r.responses || [];
-    head.appendChild(el('b', null, '가족 의견 ' + list.length + '개'));
-    if (r.share.active) {
+    var sh = r.share, box = el('div', 'fam'), head = el('div', 'fam-head');
+    var t = '가족 의견 ' + sh.count + (sh.members ? '/' + sh.members + '명' : '개');
+    if (sh.avg) t += ' \u00b7 \u2605 ' + sh.avg;
+    head.appendChild(el('b', null, t));
+    if (sh.open) {
       var cp = el('button', 'fam-copy', '링크 복사'); cp.type = 'button';
       cp.setAttribute('aria-label', r.title + ' 가족 의견 링크 복사');
       cp.addEventListener('click', async function () {
-        var url = HansangAPI.siteUrl('family-feedback.html?s=' + encodeURIComponent(r.share.token));
+        var url = HansangAPI.siteUrl('family-feedback.html?s=' + encodeURIComponent(sh.token));
         try { await navigator.clipboard.writeText(url); show('링크를 복사했어요. 카카오톡 단톡방에 붙여 넣어 주세요'); }
         catch (e) { show('복사하지 못했어요'); }
       });
       head.appendChild(cp);
     }
     box.appendChild(head);
-    if (!list.length) {
-      box.appendChild(el('p', 'fam-empty', r.share.active ? '아직 받은 의견이 없어요. 링크를 카카오톡 단톡방에 보내 보세요.' : '링크를 꺼 두어서 더 이상 의견을 받지 않아요.'));
-      return box;
-    }
-    var ul = document.createElement('ul');
-    list.forEach(function (x) {
-      var li = document.createElement('li');
-      Object.keys(x.answers || {}).forEach(function (name, i) {
-        if (i) li.appendChild(document.createTextNode(' · '));
-        li.appendChild(el('span', 'who', name + ' '));
-        li.appendChild(el('span', x.answers[name] === 'left' ? 'left' : null, RESULT[x.answers[name]] || ''));
-      });
-      if (x.comment) li.appendChild(el('q', null, x.comment));
-      ul.appendChild(li);
-    });
-    box.appendChild(ul);
+    if (sh.alerts) box.appendChild(el('p', 'fam-alert', '\u26a0 확인이 필요한 몸 이상 알림 ' + sh.alerts + '건'));
+    else if (!sh.count) box.appendChild(el('p', 'fam-empty', sh.open ? '아직 받은 의견이 없어요. 링크를 카카오톡 단톡방에 보내 보세요.' : '링크가 닫혀 있어요. 가족 반응 화면에서 다시 열 수 있어요.'));
+    var go = el('button', 'fam-go', '가족 반응 보기 \u203a'); go.type = 'button';
+    go.addEventListener('click', function () { location.href = 'family-reactions.html?s=' + encodeURIComponent(sh.token); });
+    box.appendChild(go);
     return box;
   }
 

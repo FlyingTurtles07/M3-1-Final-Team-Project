@@ -262,6 +262,20 @@
   .mc-body small { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
   .mc-link { display: block; padding: 10px; border-top: 1px solid #eadfd2; text-align: center; font-size: 13.5px; font-weight: 800; color: #a8561c; }
   .link-off .msg-card { opacity: .45; }
+  .sender-row { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+  .sender-row[hidden] { display: none; }
+  .sender-label { flex: none; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+  .sender-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .sender-chips::-webkit-scrollbar { display: none; }
+  .sender-chip {
+    flex: none; display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 12px 0 4px;
+    border: 1.5px solid #e2d6c6; border-radius: 17px; background: #fff; color: var(--ink-deep);
+    font-size: 13px; font-weight: 800; cursor: pointer;
+  }
+  .sender-chip.no-pic { padding-left: 12px; }
+  .sender-chip img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: #f3e9dc; }
+  .sender-chip[aria-checked="true"] { border-color: var(--accent); background: #fff1dc; box-shadow: 0 0 0 1px var(--accent); }
+  .sender-chip:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   .safe-note {
     display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 0; padding: 12px 14px; border-radius: 14px;
     background: #e3f1e6; color: #2d5a3a; font-size: 12.5px; line-height: 1.5; font-weight: 600;
@@ -393,11 +407,12 @@
       <!-- 링크: 카카오톡 단톡방에 올리면 가족이 눌러서 의견을 남겨요 -->
       <div class="out-pane" id="paneLink" role="tabpanel" aria-labelledby="tabLink">
         <p class="out-desc">카카오톡 단톡방에 링크를 올리면 가족이 눌러서 바로 의견을 남겨요. 가입은 필요 없어요.</p>
+        <div class="sender-row" id="senderRow"><span class="sender-label" id="senderLabel">보내는 사람</span><div class="sender-chips" id="senderChips" role="radiogroup" aria-labelledby="senderLabel"></div></div>
         <div class="preview-box" id="linkPreview">
           <p class="preview-label">이런 메시지가 가요</p>
           <div class="msg-card">
             <img id="mcPhoto" alt="">
-            <div class="mc-body"><b id="mcTitle"></b><small>가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.</small></div>
+            <div class="mc-body"><b id="mcTitle"></b><small id="mcSub">가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.</small></div>
             <span class="mc-link">의견 남기러 가기</span>
           </div>
         </div>
@@ -852,14 +867,52 @@
   var sharePostId = null;
   var qrBlob = null;
 
+  // 가족 별칭과 캐릭터 그림만 보내요 (알레르기·식사 조건 같은 건강 정보는 보내지 않아요)
+  function shareMembers() {
+    return (members || []).filter(function (m) { return m && m.name; }).map(function (m) {
+      return { name: String(m.name).slice(0, 12), avatar: m.character ? 'characters/' + encodeURIComponent(m.character) + '.png' : null };
+    });
+  }
+  function savedSender() {
+    var names = shareMembers().map(function (m) { return m.name; }), v = null;
+    try { v = localStorage.getItem('shareSender'); } catch (e) {}
+    return names.indexOf(v) !== -1 ? v : (names[0] || '');
+  }
   async function makeShare(pid) {
     sharePostId = pid;
     try {
       shareLink = await HansangAPI.request('POST', '/api/shares', { json: {
-        postId: pid, recordId: bookRecordId,
-        members: (members || []).map(function (m) { return m.name; }).filter(Boolean)
+        postId: pid, recordId: bookRecordId, members: shareMembers(), sender: savedSender()
       } });
     } catch (e) { shareLink = null; }
+  }
+  // 받침이 있으면 '이', 없으면 '가' (예: 엄마가 / 민준이)
+  function iGa(w) { var c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? '이' : '가'; }
+  function senderName() { return shareLink && shareLink.sender || '가족'; }
+  function renderSender() {
+    var list = shareMembers(), box = $('senderChips');
+    $('senderRow').hidden = !shareLink || list.length < 2;
+    box.innerHTML = '';
+    list.forEach(function (m) {
+      var b = el('button', 'sender-chip' + (m.avatar ? '' : ' no-pic')); b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', m.name === senderName() ? 'true' : 'false');
+      if (m.avatar) { var im = document.createElement('img'); im.src = m.avatar; im.alt = ''; b.appendChild(im); }
+      b.appendChild(document.createTextNode(m.name));
+      b.addEventListener('click', async function () {
+        if (m.name === senderName()) return;
+        try {
+          shareLink = await HansangAPI.request('PUT', '/api/shares/' + encodeURIComponent(shareLink.token), { json: { sender: m.name } });
+          try { localStorage.setItem('shareSender', m.name); } catch (e) {}
+          renderSender(); renderPreview();
+        } catch (e) { show('바꾸지 못했어요. 다시 눌러 주세요'); }
+      });
+      box.appendChild(b);
+    });
+  }
+  function renderPreview() {
+    var who = senderName();
+    $('mcSub').textContent = who + iGa(who) + ' 보낸 온가족 한상 초대예요. 1분이면 끝나요.';
   }
   function feedbackUrl() { return HansangAPI.siteUrl('family-feedback.html?s=' + encodeURIComponent(shareLink.token)); }
   function dishUrl() { return HansangAPI.siteUrl('dish.html?p=' + encodeURIComponent(sharePostId)); }
@@ -878,6 +931,7 @@
     } else {
       $('mcTitle').textContent = mealWord() + ' ' + sharedRecipe.title + ', 어땠어요?';
       if (photoUrl) $('mcPhoto').src = photoUrl;
+      renderSender(); renderPreview();
       renderLink();
       pickTab('link');
       buildQr();
@@ -921,21 +975,21 @@
   /* ---------- 링크 (카카오톡 → 가족 의견) ---------- */
   function linkReady() {
     if (!shareLink) { show('링크를 만들지 못했어요. 잠시 뒤 레시피북에서 다시 시도해 주세요'); return false; }
-    if (!shareLink.active) { show('링크가 꺼져 있어요. 아래 ‘링크 다시 켜기’를 눌러 주세요'); return false; }
+    if (!shareLink.open) { show('링크가 닫혀 있어요. 아래 ‘링크 다시 열기’를 눌러 주세요'); return false; }
     return true;
   }
   function renderLink() {
-    var on = !!(shareLink && shareLink.active);
+    var on = !!(shareLink && shareLink.open);
     $('linkPreview').classList.toggle('link-off', !on);
     $('outKakao').setAttribute('aria-disabled', on ? 'false' : 'true');
     $('outCopy').setAttribute('aria-disabled', on ? 'false' : 'true');
     $('outOff').hidden = !shareLink;
-    $('outOff').textContent = on ? '링크 끄기' : '링크 다시 켜기';
+    $('outOff').textContent = on ? '링크 끄기' : '링크 다시 열기';
     $('outOff').classList.toggle('on', !on);
     $('offText').textContent = !shareLink ? '링크를 만들지 못했어요. QR 코드로는 보낼 수 있어요.'
-      : on ? '끄면 이 링크로는 의견을 남길 수 없어요.' : '링크를 껐어요. 다시 켜면 같은 링크로 의견을 받아요.';
+      : on ? '링크는 하루 동안 열려요. 끄면 바로 닫혀요.' : '링크가 닫혔어요. 다시 열면 같은 링크로 하루 더 의견을 받아요.';
   }
-  function inviteText() { return '[온가족 한상] ' + mealWord() + ' ' + sharedRecipe.title + ', 어땠어요? 링크를 눌러 의견을 남겨 주세요. 1분이면 끝나요.'; }
+  function inviteText() { var w = senderName(); return '[온가족 한상] ' + w + iGa(w) + ' 보낸 초대예요. ' + mealWord() + ' ' + sharedRecipe.title + ', 어땠어요? 링크를 눌러 의견을 남겨 주세요. 1분이면 끝나요.'; }
 
   function loadKakao() {
     return new Promise(function (resolve, reject) {
@@ -953,7 +1007,7 @@
       objectType: 'feed',
       content: {
         title: mealWord() + ' ' + sharedRecipe.title + ', 어땠어요?',
-        description: '가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.',
+        description: senderName() + iGa(senderName()) + ' 보낸 온가족 한상 초대예요. 1분이면 끝나요.',
         imageUrl: shareLink.photoUrl,
         link: { mobileWebUrl: url, webUrl: url }
       },
@@ -980,12 +1034,12 @@
   });
   $('outOff').addEventListener('click', async function () {
     if (!shareLink) return;
-    var next = !shareLink.active;
+    var next = !shareLink.open;
     if (!next && !confirm('링크를 끌까요?\n끄면 이 링크로는 의견을 남길 수 없어요.')) return;
     try {
-      await HansangAPI.request('PUT', '/api/shares/' + encodeURIComponent(shareLink.token), { json: { active: next } });
-      shareLink.active = next; renderLink();
-      show(next ? '링크를 다시 켰어요' : '링크를 껐어요');
+      shareLink = await HansangAPI.request('PUT', '/api/shares/' + encodeURIComponent(shareLink.token), { json: { active: next } });
+      renderLink();
+      show(next ? '링크를 다시 열었어요 (하루 동안)' : '링크를 껐어요');
     } catch (e) { show(e && e.message ? e.message : '바꾸지 못했어요. 다시 눌러 주세요'); }
   });
 

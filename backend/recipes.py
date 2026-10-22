@@ -119,6 +119,7 @@ def _clean_recipe(raw: dict, ingredients: list[str]) -> dict | None:
 PROMPT = """너는 한국 가정식 레시피를 만드는 도우미야.
 냉장고 재료: {ingredients}
 이미 보여준 메뉴(겹치지 않게): {exclude}
+지난 식사 가족 반응(맛 취향 참고용, 비어 있으면 무시): {notes}
 
 위 재료를 최대한 활용해서 가족이 함께 먹을 수 있는 한식 레시피 {count}개를 만들어.
 - 모두 4인분(성인 1인분×4) 기준. ing·sauce의 각 줄은 꼭 [이름, 양, 무게] 세 칸으로 (예: ["무","약 1/5개","300g"]). 계량: 1컵 200mL, 1큰술 15mL, 1작은술 5mL.
@@ -128,6 +129,7 @@ PROMPT = """너는 한국 가정식 레시피를 만드는 도우미야.
 - adds: 만드는법 각 단계에서 '새로 들어가는 재료 이름' 목록 (steps와 길이가 같아야 해). 이름은 ing/sauce에 쓴 이름과 같게.
 - saltAt: 간(소금·간장·된장 등)을 하는 단계 번호(0부터).
 - 건강 효과를 단정하는 표현은 쓰지 마.
+- 가족 반응이 있으면 맛 취향(간, 식감, 남긴 재료)을 참고해서 간을 맞추거나 재료를 바꿔도 좋아. 같은 메뉴를 다시 낼 땐 반응을 반영한 변형으로.
 
 JSON만 답해:
 {{"recipes":[{{"title":"소고기 뭇국","minutes":35,
@@ -150,12 +152,13 @@ def parse_json(text: str) -> dict:
         return {}
 
 
-async def ai_recommend(ingredients: list[str], exclude_titles: list[str], count: int = 3) -> list[dict]:
+async def ai_recommend(ingredients: list[str], exclude_titles: list[str], count: int = 3, notes: str = "") -> list[dict]:
     if not os.getenv("OPENAI_API_KEY"):
         return []
     from openai import AsyncOpenAI
     client = AsyncOpenAI(timeout=float(os.getenv("OPENAI_TIMEOUT", "40")), max_retries=0)
-    prompt = PROMPT.format(ingredients=", ".join(ingredients) or "(없음)", exclude=", ".join(exclude_titles) or "(없음)", count=count)
+    prompt = PROMPT.format(ingredients=", ".join(ingredients) or "(없음)", exclude=", ".join(exclude_titles) or "(없음)", count=count,
+                           notes=("\n" + notes) if notes else "(없음)")
     # 첫 모델이 실패하거나 쓸 만한 레시피를 못 주면 다음 모델로 한 번 더 시도해요
     models = [OPENAI_MODEL] + [m.strip() for m in os.getenv("OPENAI_FALLBACK_MODELS", "gemini-3.1-flash-lite").split(",") if m.strip() and m.strip() != OPENAI_MODEL]
     for model in models:

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>가족 의견 남기기 · 온가족 한상</title>
-<meta property="og:title" content="온가족 한상 · 오늘 식사 어땠어요?">
+<title>오늘 한상, 어땠나요? · 온가족 한상</title>
+<meta property="og:title" content="온가족 한상 · 오늘 한상, 어땠나요?">
 <meta property="og:description" content="가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,14 +13,19 @@
   :root {
     --stage: #292929;
     --paper: #f4f2ec;
+    --cream: #fdf6ec;
     --ink: #4a2f27;
     --ink-deep: #231713;
     --muted: #6b5a52;
-    --step: #7a2323;
     --accent: #ffa233;
+    --star: #f39a1e;
+    --chip-on: #fde3c2;
     --line: #b1ac9d;
-    --pink: #f1b9b9;
-    --danger: #d12b2b;
+    --soft-line: #eadfd2;
+    --danger: #c62828;
+    --danger-bg: #fdecec;
+    --ok: #2f6b3e;
+    --ok-bg: #e3f1e6;
     --font: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
     box-sizing: border-box;
   }
@@ -37,7 +42,8 @@
     display: flex; align-items: center; justify-content: center;
     padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
   }
-  button, textarea { font-family: inherit; }
+  button, textarea, input { font-family: inherit; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   .phone {
     position: relative;
@@ -48,119 +54,134 @@
     display: flex; flex-direction: column;
   }
   @media (max-width: 420px) { .phone { width: 100%; height: 100%; } }
-  .scrim {
-    position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(to bottom,
-      rgba(255,242,230,.6) 0%, rgba(255,242,230,.3) 50%, rgba(244,242,236,.6) 100%);
-  }
+  .scrim { position: absolute; inset: 0; pointer-events: none; background: rgba(253, 246, 236, .9); }
 
-  .brand {
-    position: relative; z-index: 1; margin-top: 20px; padding: 18px 20px 6px;
-    display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--ink);
+  .head {
+    position: relative; z-index: 1; margin-top: 20px; padding: 16px 20px 12px;
+    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--soft-line);
   }
-  .brand i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .head h1 { margin: 0; font-size: 17px; font-weight: 800; color: var(--ink-deep); }
+  .logo { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; }
+  .logo svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
   .scroll {
     position: relative; z-index: 1; flex: 1; min-height: 0;
-    overflow-y: auto; overscroll-behavior: contain;
-    padding: 8px 18px 24px; scrollbar-width: none;
+    overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 24px; scrollbar-width: none;
   }
   .scroll::-webkit-scrollbar { display: none; }
+  [hidden] { display: none !important; }
 
-  .dish {
-    height: 180px; border-radius: 22px; overflow: hidden; margin-bottom: 16px;
-    background: #f4dede; box-shadow: 0 6px 16px rgba(120, 70, 50, .12);
-  }
-  .dish[hidden] { display: none; }
-  .dish img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  h1 {
-    margin: 0; font-size: 22px; line-height: 1.4; font-weight: 800; color: var(--ink-deep);
-    letter-spacing: -.02em; word-break: keep-all; overflow-wrap: anywhere;
-    text-shadow: 0 0 10px rgba(255,244,232,.95), 0 0 2px rgba(255,244,232,.9);
-  }
-  .sub {
-    margin: 4px 0 0; font-size: 13px; font-weight: 800; color: var(--step);
-    text-shadow: 0 0 8px rgba(255,244,232,.95);
-  }
+  /* 메뉴 */
+  .menu { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; border: 1.5px solid var(--soft-line); border-radius: 14px; }
+  .menu .thumb { flex: none; width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: #efe4d4; }
+  .menu small { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
+  .menu b { display: block; margin-top: 2px; font-size: 16px; font-weight: 800; color: var(--ink-deep); overflow-wrap: anywhere; }
 
-  .label {
-    display: block; margin: 20px 0 8px 2px; font-size: 13px; font-weight: 800; color: var(--ink-deep);
-    text-shadow: 0 0 8px rgba(255,244,232,.95), 0 0 2px rgba(255,244,232,.9);
-  }
-  .label .opt { color: #6b6b6b; font-weight: 700; }
-  .cards { display: grid; gap: 12px; }
-  .card {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    min-height: 66px; padding: 12px 14px;
-    background: #fff; border: 2px solid #f4dede; border-radius: 18px;
-    box-shadow: 0 6px 16px rgba(120, 70, 50, .08);
-  }
-  .cards.error .card { border-color: var(--danger); }
-  .name { font-size: 15px; font-weight: 800; color: var(--ink-deep); word-break: keep-all; min-width: 0; overflow-wrap: anywhere; }
-  .choices { display: flex; gap: 8px; flex: none; }
-  .choice {
-    width: 92px; height: 38px; border-radius: 12px;
-    border: 1.5px solid var(--pink); background: #fff; color: var(--ink-deep);
-    font-size: 13px; font-weight: 800; cursor: pointer;
-    transition: background .12s, border-color .12s, transform .12s;
-  }
-  .choice:active { transform: scale(.97); }
-  .choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
-  .choice:disabled { cursor: default; }
+  .q { margin: 22px 2px 10px; font-size: 16px; font-weight: 800; color: var(--ink-deep); }
+  .q small { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 
-  .area { position: relative; }
-  textarea {
-    display: block; width: 100%; height: 104px; resize: none;
-    padding: 12px 14px 26px; border: 2px solid #f4dede; border-radius: 16px;
-    background: #fff; color: var(--ink-deep);
-    font-size: 14px; line-height: 1.5; font-weight: 700; outline: none;
+  /* 누구세요? */
+  .who { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .who-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 9px; min-width: 0;
+    border: 2px solid var(--soft-line); border-radius: 16px; background: #fff; cursor: pointer;
+    color: var(--ink-deep); font-size: 13.5px; font-weight: 800; transition: border-color .12s, background .12s;
   }
-  textarea::placeholder { color: #7a4a46; font-weight: 700; opacity: .85; }
-  textarea:focus-visible { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(74,47,39,.2); }
-  textarea:disabled { background: #f7f3ee; }
-  .count { position: absolute; right: 14px; bottom: 8px; font-size: 11.5px; font-weight: 700; color: #a79e95; pointer-events: none; }
-  .msg { margin: 8px 0 0 2px; font-size: 12.5px; font-weight: 800; color: var(--danger); }
-  .msg[hidden] { display: none; }
-  .safe-note {
-    display: flex; gap: 10px; align-items: flex-start; margin: 18px 0 0; padding: 12px 14px; border-radius: 14px;
-    background: #e3f1e6; color: #2d5a3a; font-size: 12.5px; line-height: 1.5; font-weight: 600;
-  }
-  .safe-note svg { flex: none; width: 20px; height: 20px; margin-top: 1px; }
+  .who-btn .face { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #f3e9dc; display: grid; place-items: center; font-size: 18px; font-weight: 800; color: #a8561c; }
+  .who-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who-btn[aria-checked="true"] { border-color: var(--star); background: #fff1dc; }
+  .who.error .who-btn { border-color: var(--danger); }
 
-  /* 안내 상태 (불러오는 중 · 꺼진 링크 · 보낸 뒤) */
-  .state { margin-top: 40px; padding: 28px 20px; text-align: center; background: rgba(255,252,248,.95); border: 2px solid #f4dede; border-radius: 22px; }
-  .state[hidden] { display: none; }
-  .state .big { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%; background: #fff1dc; color: #c0650f; }
-  .state .big svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-  .state h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink-deep); word-break: keep-all; }
+  /* 별점 */
+  .stars { display: flex; align-items: center; gap: 2px; }
+  .star { width: 46px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; color: #e6dccd; }
+  .star svg { width: 38px; height: 38px; fill: currentColor; }
+  .star.on { color: var(--star); }
+  .star-label { margin-left: auto; max-width: 84px; text-align: right; font-size: 13px; line-height: 1.35; font-weight: 800; color: #a8561c; word-break: keep-all; }
+  .stars.error .star { color: #f2c2c2; }
+
+  /* 느낌 */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 14px;
+    border: 1.5px solid var(--soft-line); border-radius: 20px; background: #fff; cursor: pointer;
+    color: var(--ink-deep); font-size: 13.5px; font-weight: 800;
+  }
+  .chip[aria-pressed="true"] { border-color: var(--star); background: var(--chip-on); }
+  .chip[aria-pressed="true"]::before { content: "✓"; font-weight: 800; }
+
+  textarea, .sym-input {
+    display: block; width: 100%; border: 1.5px solid var(--soft-line); border-radius: 14px; background: #fff;
+    color: var(--ink-deep); font-size: 14.5px; font-weight: 600; outline: none;
+  }
+  textarea { height: 78px; margin-top: 14px; padding: 12px 14px; resize: none; line-height: 1.5; }
+  textarea::placeholder, .sym-input::placeholder { color: #a39a90; font-weight: 500; }
+  textarea:focus-visible, .sym-input:focus-visible { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(74,47,39,.15); }
+
+  /* 몸이 불편했나요? */
+  .sym { margin-top: 16px; border: 1.5px solid #e9a5a5; border-radius: 14px; background: var(--danger-bg); overflow: hidden; }
+  .sym-toggle {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px; border: 0; background: none; cursor: pointer;
+    color: var(--danger); font-size: 14.5px; font-weight: 800; text-align: left;
+  }
+  .sym-toggle svg { flex: none; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .sym-toggle .open-txt { margin-left: auto; font-size: 13px; }
+  .sym-body { padding: 0 14px 14px; }
+  .sym-body .chips { margin-top: 0; }
+  .sym-body .chip { border-color: #efc4c4; }
+  .sym-body .chip[aria-pressed="true"] { border-color: var(--danger); background: #fff; color: var(--danger); }
+  .sym-input { height: 44px; margin-top: 10px; padding: 0 14px; }
+  .sym-note { margin: 10px 0 0; font-size: 12px; line-height: 1.55; font-weight: 600; color: #7a3b3b; }
+  .emergency { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--danger); color: #fff; font-size: 13.5px; line-height: 1.5; font-weight: 800; }
+  .emergency a { display: block; margin-top: 8px; height: 42px; line-height: 42px; border-radius: 21px; background: #fff; color: var(--danger); text-align: center; text-decoration: none; font-size: 15px; }
+
+  /* 동의 */
+  .consent { display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; cursor: pointer; }
+  .consent input { flex: none; width: 24px; height: 24px; margin: 1px 0 0; accent-color: #8a4a12; cursor: pointer; }
+  .consent b { display: block; font-size: 13.5px; line-height: 1.5; font-weight: 800; color: var(--ink-deep); }
+  .consent b em { font-style: normal; color: #a8561c; }
+  .consent small { display: block; margin-top: 6px; font-size: 12px; line-height: 1.55; font-weight: 600; color: var(--muted); }
+
+  /* 보낸 뒤 */
+  .done { padding-top: 26px; text-align: center; }
+  .done .check { display: grid; place-items: center; width: 92px; height: 92px; margin: 0 auto 18px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); }
+  .done .check svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .done h2 { margin: 0; font-size: 23px; font-weight: 800; color: var(--ink-deep); word-break: keep-all; }
+  .done > p { margin: 8px 0 0; font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--muted); word-break: keep-all; }
+  .sum { margin-top: 22px; padding: 16px; text-align: left; background: #fff; border: 1.5px solid var(--soft-line); border-radius: 18px; box-shadow: 0 4px 14px rgba(120, 70, 50, .08); }
+  .sum-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sum-top b { font-size: 16px; font-weight: 800; color: var(--ink-deep); overflow-wrap: anywhere; }
+  .rate { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 800; color: var(--ink-deep); }
+  .rate svg { width: 18px; height: 18px; fill: var(--star); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { padding: 4px 10px; border-radius: 999px; background: var(--chip-on); font-size: 12.5px; font-weight: 800; color: var(--ink-deep); }
+  .sum p { margin: 10px 0 0; font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--ink-deep); overflow-wrap: anywhere; }
+  .sum .sym-sent { padding: 8px 10px; border-radius: 10px; background: var(--danger-bg); color: var(--danger); font-size: 13px; font-weight: 800; }
+
+  /* 안내 상태 */
+  .state { margin-top: 40px; padding: 28px 20px; text-align: center; background: #fff; border: 1.5px solid var(--soft-line); border-radius: 20px; }
+  .state h2 { margin: 0; font-size: 18px; font-weight: 800; color: var(--ink-deep); word-break: keep-all; }
   .state p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; font-weight: 600; color: var(--muted); word-break: keep-all; }
-  #form[hidden] { display: none; }
 
-  .foot {
-    position: relative; z-index: 1;
-    padding: 30px 20px calc(22px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to bottom, rgba(244,242,236,0) 0%, rgba(244,242,236,.94) 34%, var(--paper) 50%);
-  }
+  .foot { position: relative; z-index: 1; padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--cream); border-top: 1px solid var(--soft-line); }
   .btn {
-    display: block; width: 100%; height: 56px; border-radius: 30px;
-    border: 2px solid var(--line); background: #fff; color: #1f1a17;
-    font-size: 16px; font-weight: 800; cursor: pointer;
-    transition: transform .15s, background .15s, opacity .15s;
+    display: block; width: 100%; height: 54px; border-radius: 16px;
+    border: 1.5px solid var(--soft-line); background: #fff; color: var(--ink-deep);
+    font-size: 16px; font-weight: 800; cursor: pointer; transition: transform .15s, background .15s, opacity .15s;
   }
-  .btn[hidden] { display: none; }
   .btn + .btn { margin-top: 10px; }
   .btn:active { transform: scale(.985); }
-  .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; transform: none; }
-  .btn.cta { background: var(--accent); }
-  .btn.cta:hover { background: #ffad4d; }
-  .btn:focus-visible, .choice:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .btn.cta { border-color: var(--accent); background: var(--accent); color: #3b2418; }
+  .btn.cta[aria-disabled="true"] { border-color: #eadccb; background: #eadccb; color: #8a7a70; cursor: not-allowed; transform: none; }
+  .btn.ghost { height: 40px; margin-top: 4px; border: 0; background: none; color: var(--muted); font-size: 14px; }
+  .foot-note { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .foot-note:empty { display: none; }
+  .btn:focus-visible, .who-btn:focus-visible, .star:focus-visible, .chip:focus-visible, .sym-toggle:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
   .toast {
-    position: absolute; z-index: 20; left: 50%; bottom: 150px;
-    transform: translate(-50%, 12px);
-    background: #3b2a24; color: #fff; font-size: 13px; font-weight: 700;
-    padding: 10px 16px; border-radius: 20px; opacity: 0; pointer-events: none;
-    transition: opacity .2s, transform .2s; max-width: 90%; text-align: center;
+    position: absolute; z-index: 20; left: 50%; bottom: 120px; transform: translate(-50%, 12px);
+    background: #3b2a24; color: #fff; font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 20px;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: 90%; text-align: center;
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -169,40 +190,74 @@
 <body>
 <main class="phone">
   <div class="scrim"></div>
-  <div class="brand"><i aria-hidden="true"></i>온가족 한상</div>
+  <header class="head">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 11h16a8 8 0 0 1-16 0z"/><path d="M9 7.500c0-1 1-1.500 1-2.500M14 7.500c0-1 1-1.500 1-2.500"/></svg></span>
+    <h1 id="headTitle">오늘 한상, 어땠나요?</h1>
+  </header>
 
   <div class="scroll" id="scroll">
-    <!-- 불러오는 중 · 꺼진 링크 · 보낸 뒤 -->
+    <!-- 불러오는 중 · 닫힌 링크 -->
     <section class="state" id="state" aria-live="polite">
-      <div class="big" id="stateIcon"></div>
       <h2 id="stateTitle">초대장을 여는 중이에요…</h2>
       <p id="stateText">잠시만 기다려 주세요. 처음 열 때는 조금 걸릴 수 있어요.</p>
     </section>
 
     <!-- 의견 남기기 -->
     <div id="form" hidden>
-      <div class="dish" id="dish" hidden></div>
-      <h1 id="title"></h1>
-      <p class="sub">가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.</p>
-
-      <span class="label" id="whoLabel">누가 어떻게 먹었나요? <span class="opt">(내 이름만 골라도 돼요)</span></span>
-      <div class="cards" id="cards" role="group" aria-labelledby="whoLabel"></div>
-      <p class="msg" id="msgPick" hidden>먹은 정도를 하나 이상 고르거나 남기고 싶은 말을 적어 주세요</p>
-
-      <label class="label" for="comment">남기고 싶은 말 <span class="opt">(선택)</span></label>
-      <div class="area">
-        <textarea id="comment" maxlength="200" placeholder="예: 국물이 시원해서 좋았어요. 다음엔 덜 짜게!"></textarea>
-        <span class="count" id="count">0/200</span>
+      <div class="menu">
+        <img class="thumb" id="thumb" alt="" hidden>
+        <div><small id="from"></small><b id="dishTitle"></b></div>
       </div>
 
-      <p class="safe-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.500 6v5.500c0 4.600 3.200 8.300 7.500 9.500 4.300-1.200 7.500-4.900 7.500-9.500V6z"/></svg><span>이 화면에는 메뉴와 가족 별칭만 보여요. 알레르기 같은 건강 정보는 보이지 않아요. 남긴 의견은 보낸 사람만 볼 수 있어요.</span></p>
+      <p class="q" id="whoQ">누구세요? <small>(내 이름을 눌러요)</small></p>
+      <div class="who" id="who" role="radiogroup" aria-labelledby="whoQ"></div>
+
+      <p class="q" id="rateQ">맛은 어땠나요?</p>
+      <div class="stars" id="stars" role="radiogroup" aria-labelledby="rateQ"></div>
+      <div class="chips" id="chips" role="group" aria-label="먹어 본 느낌 (여러 개 골라도 돼요)"></div>
+      <label class="sr" for="comment">남기고 싶은 말</label>
+      <textarea id="comment" maxlength="200" placeholder="남기고 싶은 말 (선택)  예: 두부는 다 먹고 대파만 남겼어요"></textarea>
+
+      <section class="sym" id="sym">
+        <button class="sym-toggle" type="button" id="symToggle" aria-expanded="false" aria-controls="symBody">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.500 2.500 20h19z"/><path d="M12 10v4.500M12 17.500v.01"/></svg>
+          먹고 몸이 불편했나요?<span class="open-txt" id="symOpenTxt">열기</span>
+        </button>
+        <div class="sym-body" id="symBody" hidden>
+          <div class="chips" id="symChips" role="group" aria-label="불편했던 증상"></div>
+          <label class="sr" for="symText">다른 증상</label>
+          <input class="sym-input" id="symText" maxlength="100" placeholder="다른 증상이 있으면 적어 주세요 (선택)">
+          <div class="emergency" id="emergency" hidden>
+            숨쉬기 어렵거나 얼굴·입술이 붓는다면 의견보다 먼저 119에 전화하세요.
+            <a href="tel:119">119 전화하기</a>
+          </div>
+          <p class="sym-note">앱은 진단을 대신하지 않아요. 알려 주신 증상은 건강 정보라서 링크를 보낸 사람에게만 전달돼요.</p>
+        </div>
+      </section>
+
+      <label class="consent">
+        <input type="checkbox" id="consent">
+        <span>
+          <b><em>(필수)</em> <span id="consentText">내 별칭, 별점, 의견이 가족에게 전달되고 다음 메뉴 추천에 쓰이는 데 동의해요.</span></b>
+          <small id="consentSub"></small>
+        </span>
+      </label>
+    </div>
+
+    <!-- 보낸 뒤 -->
+    <div class="done" id="done" hidden>
+      <div class="check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.500 4.500 4.500L19 7.500"/></svg></div>
+      <h2 id="doneTitle"></h2>
+      <p id="doneText"></p>
+      <div class="sum" id="sum"></div>
     </div>
   </div>
 
   <footer class="foot">
-    <button class="btn cta" type="button" id="send" hidden>의견 보내기</button>
-    <button class="btn cta" type="button" id="toDish" hidden>이 요리 레시피 보기</button>
-    <button class="btn" type="button" id="toApp">온가족 한상 알아보기</button>
+    <button class="btn cta" type="button" id="send" hidden aria-disabled="true">동의에 체크하면 보낼 수 있어요</button>
+    <button class="btn" type="button" id="editBtn" hidden>의견 고치기</button>
+    <p class="foot-note" id="footNote"></p>
+    <button class="btn ghost" type="button" id="otherBtn" hidden>다른 가족 의견도 남기기</button>
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -213,123 +268,193 @@
 (function () {
   /* =====================================================
    * 가족 의견 남기기 (카카오톡으로 받은 링크: family-feedback.html?s=링크번호)
-   * - 가입·로그인 없이 열려요. 서버에서 메뉴 이름·사진·가족 별칭만 받아요.
-   * - 보낸 의견은 보낸 사람의 '나만의 레시피북'에 모여요.
+   * - 가입·로그인 없이 열려요. 서버에서 메뉴 이름·사진·가족 별칭(캐릭터)만 받아요.
+   * - 가족 한 명당 의견 하나. 링크가 열려 있는 동안 다시 보내면 고쳐져요.
+   * - '먹고 몸이 불편했나요?'는 건강 정보라서 링크를 보낸 사람에게만 전달돼요.
    * ===================================================== */
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
   var toastTimer;
   function show(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+  function iGa(w) { var c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? '이' : '가'; }
 
-  var ICON = {
-    wait: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
-    done: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.500 4.500 4.500L19 7.500"/></svg>',
-    off: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.500 8.500l7 7M15.500 8.500l-7 7"/></svg>'
-  };
-  var RESULT = { ate: '잘 먹었어요', left: '남겼어요' };
+  var STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.800 2.800 5.900 6.400.8-4.700 4.400 1.200 6.400L12 17.200l-5.700 3.100 1.200-6.400L2.800 9.500l6.400-.8z"/></svg>';
+  var STAR_LABEL = ['', '별로였어요', '아쉬웠어요', '괜찮았어요', '맛있었어요', '정말 맛있었어요'];
+  var CHIPS = ['맛있었어요', '또 먹고 싶어요', '간이 싱거워요', '간이 짜요', '씹기 편했어요', '씹기 힘들어요', '남겼어요'];
+  var SYMPTOMS = ['입 주변이 가려워요', '두드러기가 났어요', '얼굴·입술이 부었어요', '배가 아파요', '토했어요', '숨쉬기 힘들어요'];
+  var URGENT = ['얼굴·입술이 부었어요', '숨쉬기 힘들어요'];
+
   var token = new URLSearchParams(location.search).get('s') || '';
-  var share = null, answers = {}, sending = false;
-  var SENT_KEY = 'sentFeedback_' + token;
+  var MINE_KEY = 'myFeedback_' + token;
+  var share = null, sending = false, editing = false;
+  var st = { member: null, rating: 0, chips: [], symptoms: [] };
 
-  function setState(icon, title, text) {
-    $('form').hidden = true; $('send').hidden = true;
-    $('state').hidden = false;
-    $('stateIcon').innerHTML = ICON[icon];
-    $('stateTitle').textContent = title; $('stateText').textContent = text;
+  function loadMine() { try { return JSON.parse(localStorage.getItem(MINE_KEY) || 'null'); } catch (e) { return null; } }
+  function saveMine(v) { try { localStorage.setItem(MINE_KEY, JSON.stringify(v)); } catch (e) {} }
+  function sender() { return share && share.sender || '가족'; }
+
+  function view(which) {
+    $('state').hidden = which !== 'state'; $('form').hidden = which !== 'form'; $('done').hidden = which !== 'done';
+    $('send').hidden = which !== 'form';
+    $('editBtn').hidden = which !== 'done' || !share || !share.open;
+    $('otherBtn').hidden = which !== 'done' || !share || !share.open || (share.members || []).length < 2;
+    $('headTitle').textContent = which === 'done' ? '온가족 한상' : '오늘 한상, 어땠나요?';
+    renderFootNote(which);
   }
+  function setState(title, text) { view('state'); $('stateTitle').textContent = title; $('stateText').textContent = text; }
 
-  function people() { return share.members && share.members.length ? share.members : ['나']; }
-  function renderCards() {
-    var box = $('cards'); box.innerHTML = '';
-    people().forEach(function (name) {
-      var card = el('div', 'card');
-      card.appendChild(el('span', 'name', name));
-      var group = el('div', 'choices');
-      group.setAttribute('role', 'group'); group.setAttribute('aria-label', name + ' 식사 결과');
-      ['ate', 'left'].forEach(function (key) {
-        var b = el('button', 'choice', RESULT[key]); b.type = 'button';
-        b.setAttribute('aria-pressed', answers[name] === key ? 'true' : 'false');
-        b.disabled = sending;
-        b.addEventListener('click', function () {
-          answers[name] = answers[name] === key ? undefined : key;   // 한 번 더 누르면 선택 해제
-          $('cards').classList.remove('error'); $('msgPick').hidden = true;
-          renderCards();
-        });
-        group.appendChild(b);
-      });
-      card.appendChild(group);
-      box.appendChild(card);
+  // 남은 시간: "23시간 58분"
+  function leftText() {
+    var ms = new Date(share.expiresAt) - Date.now();
+    if (!(ms > 0)) return null;
+    var m = Math.floor(ms / 60000), h = Math.floor(m / 60);
+    return h ? h + '시간 ' + (m % 60) + '분' : Math.max(1, m) + '분';
+  }
+  function renderFootNote(which) {
+    var n = $('footNote'), left = share && share.open ? leftText() : null;
+    if (which === 'form') n.textContent = '로그인 없이 보내요' + (left ? ' · 이 링크는 ' + left + ' 뒤에 만료돼요' : '');
+    else if (which === 'done') n.textContent = share && share.open ? '링크가 만료되기 전까지 고칠 수 있어요.' : '링크가 닫혀서 더 고칠 수 없어요.';
+    else n.textContent = '';
+  }
+  setInterval(function () { if (share && !$('form').hidden) renderFootNote('form'); }, 30000);
+
+  /* ---------- 그리기 ---------- */
+  function face(m) {
+    if (m.avatar) { var im = el('img', 'face'); im.src = m.avatar; im.alt = ''; im.onerror = function () { im.replaceWith(el('span', 'face', m.name.slice(0, 1))); }; return im; }
+    return el('span', 'face', m.name.slice(0, 1));
+  }
+  function renderWho() {
+    var box = $('who'); box.innerHTML = '';
+    share.members.forEach(function (m) {
+      var b = el('button', 'who-btn'); b.type = 'button';
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', st.member === m.name ? 'true' : 'false');
+      b.appendChild(face(m)); b.appendChild(el('span', null, m.name));
+      b.addEventListener('click', function () { st.member = m.name; box.classList.remove('error'); renderWho(); renderSend(); });
+      box.appendChild(b);
     });
   }
+  function renderStars() {
+    var box = $('stars'); box.innerHTML = '';
+    for (var i = 1; i <= 5; i++) (function (n) {
+      var b = el('button', 'star' + (n <= st.rating ? ' on' : '')); b.type = 'button'; b.innerHTML = STAR;
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', st.rating === n ? 'true' : 'false');
+      b.setAttribute('aria-label', '별 ' + n + '개 · ' + STAR_LABEL[n]);
+      b.addEventListener('click', function () { st.rating = n; box.classList.remove('error'); renderStars(); renderSend(); });
+      box.appendChild(b);
+    })(i);
+    box.appendChild(el('span', 'star-label', STAR_LABEL[st.rating] || ''));
+  }
+  function chipGroup(boxId, items, list, after) {
+    var box = $(boxId); box.innerHTML = '';
+    items.forEach(function (c) {
+      var b = el('button', 'chip', c); b.type = 'button';
+      b.setAttribute('aria-pressed', list.indexOf(c) !== -1 ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        var i = list.indexOf(c); if (i === -1) list.push(c); else list.splice(i, 1);
+        chipGroup(boxId, items, list, after); if (after) after();
+      });
+      box.appendChild(b);
+    });
+  }
+  function renderUrgent() { $('emergency').hidden = !st.symptoms.some(function (x) { return URGENT.indexOf(x) !== -1; }); }
+  function setSymOpen(open) {
+    $('symBody').hidden = !open; $('symToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    $('symOpenTxt').textContent = open ? '닫기' : '열기';
+  }
+  $('symToggle').addEventListener('click', function () { setSymOpen($('symBody').hidden); });
 
-  function showForm() {
-    $('state').hidden = true; $('form').hidden = false; $('send').hidden = false;
-    $('title').textContent = share.title + ', 어땠어요?';
-    document.title = share.title + ' · 가족 의견 남기기';
-    if (share.photoUrl) {
-      var img = document.createElement('img'); img.src = share.photoUrl; img.alt = share.title + ' 사진';
-      img.onerror = function () { $('dish').hidden = true; };
-      $('dish').appendChild(img); $('dish').hidden = false;
-    }
-    renderCards();
+  function missing() {
+    if (!st.member) return '내 이름을 골라 주세요';
+    if (!st.rating) return '별점을 골라 주세요';
+    if (!$('consent').checked) return '동의에 체크하면 보낼 수 있어요';
+    return null;
+  }
+  function renderSend() {
+    var b = $('send'), m = missing();
+    b.setAttribute('aria-disabled', m || sending ? 'true' : 'false');
+    b.textContent = sending ? '보내는 중…' : (!$('consent').checked ? '동의에 체크하면 보낼 수 있어요' : (editing ? '고친 의견 보내기' : '의견 보내기'));
+  }
+  $('consent').addEventListener('change', renderSend);
+
+  function showForm(prev) {
+    editing = !!prev;
+    st = { member: prev ? prev.member : null, rating: prev ? prev.rating : 0, chips: prev ? prev.chips.slice() : [],
+           symptoms: prev && prev.symptom ? prev.symptom.items.slice() : [] };
+    $('comment').value = prev ? prev.comment || '' : '';
+    $('symText').value = prev && prev.symptom ? prev.symptom.text || '' : '';
+    $('consent').checked = false;
+    setSymOpen(!!(prev && prev.symptom));
+    renderWho(); renderStars(); chipGroup('chips', CHIPS, st.chips); chipGroup('symChips', SYMPTOMS, st.symptoms, renderUrgent); renderUrgent(); renderSend();
+    view('form');
+    $('scroll').scrollTop = 0;
   }
 
-  function showDone(again) {
-    setState('done', again ? '이미 의견을 남겼어요' : '의견을 전했어요. 고마워요!',
-      again ? '한 번 더 남기고 싶으면 아래 ‘다시 남기기’를 눌러 주세요.' : '보낸 사람이 다음 요리를 고를 때 참고할게요.');
-    $('toDish').hidden = !share.photoUrl && !share.postId;
-    if (again) {
-      var b = el('button', 'btn', '다시 남기기'); b.type = 'button'; b.style.marginTop = '16px';
-      b.addEventListener('click', function () { b.remove(); showForm(); });
-      $('state').appendChild(b);
-    }
+  function showDone(r) {
+    view('done');
+    $('doneTitle').textContent = sender() + '에게 전달했어요';
+    $('doneText').textContent = r.member + ' 님, 의견 고마워요. 다음 한상에 반영될 거예요.';
+    var sum = $('sum'); sum.innerHTML = '';
+    var top = el('div', 'sum-top'); top.appendChild(el('b', null, share.title));
+    var rate = el('span', 'rate'); rate.innerHTML = STAR; rate.appendChild(document.createTextNode(String(r.rating))); rate.setAttribute('aria-label', '별점 ' + r.rating);
+    top.appendChild(rate); sum.appendChild(top);
+    if (r.chips.length) { var tg = el('div', 'tags'); r.chips.forEach(function (c) { tg.appendChild(el('span', 'tag', c)); }); sum.appendChild(tg); }
+    if (r.comment) sum.appendChild(el('p', null, r.comment));
+    if (r.symptom) sum.appendChild(el('p', 'sym-sent', '몸이 불편했다고 ' + sender() + '에게만 알렸어요' + (r.symptom.items.length ? ': ' + r.symptom.items.join(', ') : '')));
+    $('scroll').scrollTop = 0;
   }
+  $('editBtn').addEventListener('click', function () { showForm(loadMine()); });
+  $('otherBtn').addEventListener('click', function () { showForm(null); });
 
+  /* ---------- 불러오기 ---------- */
   async function load() {
-    setState('wait', '초대장을 여는 중이에요…', '잠시만 기다려 주세요. 처음 열 때는 조금 걸릴 수 있어요.');
-    if (!token) { setState('off', '링크를 확인해 주세요', '받은 링크 주소가 잘렸을 수 있어요. 카카오톡에서 링크를 다시 눌러 주세요.'); return; }
-    try {
-      share = await HansangAPI.request('GET', '/api/shares/' + encodeURIComponent(token));
-    } catch (e) {
-      if (e && e.status === 404) setState('off', '없는 링크예요', '받은 링크 주소가 잘렸을 수 있어요. 카카오톡에서 링크를 다시 눌러 주세요.');
-      else setState('off', '초대장을 열지 못했어요', '인터넷 연결을 확인하고 잠시 뒤 다시 열어 주세요.');
+    if (!token) { setState('링크를 확인해 주세요', '받은 링크 주소가 잘렸을 수 있어요. 카카오톡에서 링크를 다시 눌러 주세요.'); return; }
+    try { share = await HansangAPI.request('GET', '/api/shares/' + encodeURIComponent(token)); }
+    catch (e) {
+      if (e && e.status === 404) setState('없는 링크예요', '받은 링크 주소가 잘렸을 수 있어요. 카카오톡에서 링크를 다시 눌러 주세요.');
+      else setState('초대장을 열지 못했어요', '인터넷 연결을 확인하고 잠시 뒤 다시 열어 주세요.');
       return;
     }
-    if (!share.active) { setState('off', '링크가 꺼져 있어요', '보낸 사람이 링크를 꺼서 지금은 의견을 남길 수 없어요.'); $('toDish').hidden = !share.photoUrl; return; }
-    var sent = false; try { sent = localStorage.getItem(SENT_KEY) === '1'; } catch (e) {}
-    if (sent) showDone(true); else showForm();
+    var who = sender();
+    $('from').textContent = who + iGa(who) + ' 보낸 오늘 식사';
+    $('dishTitle').textContent = share.title;
+    document.title = share.title + ' · 오늘 한상, 어땠나요?';
+    if (share.photoUrl) { $('thumb').onerror = function () { $('thumb').hidden = true; }; $('thumb').src = share.photoUrl; $('thumb').hidden = false; }
+    $('consentText').textContent = '내 별칭, 별점, 의견이 ' + who + '에게 전달되고 다음 메뉴 추천에 쓰이는 데 동의해요.';
+    $('consentSub').textContent = '몸이 불편하다는 알림은 건강 정보라서 ' + who + '에게만 전달돼요. 어린이는 ' + who + '(보호자)가 대신 동의해요. ' + who + iGa(who) + ' 언제든 지울 수 있어요.';
+
+    var mine = loadMine();
+    if (mine) { showDone(mine); return; }
+    if (!share.open) { setState('링크가 닫혔어요', who + iGa(who) + ' 링크를 껐거나 하루가 지나서 지금은 의견을 남길 수 없어요.'); return; }
+    showForm(null);
   }
 
-  $('comment').addEventListener('input', function (e) { $('count').textContent = e.target.value.length + '/200'; });
-
+  /* ---------- 보내기 ---------- */
   $('send').addEventListener('click', async function () {
     if (sending) return;
-    var picked = {};
-    people().forEach(function (n) { if (answers[n]) picked[n] = answers[n]; });
-    var comment = $('comment').value.trim();
-    if (!Object.keys(picked).length && !comment) {
-      $('cards').classList.add('error'); $('msgPick').hidden = false;
-      $('cards').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var m = missing();
+    if (m) {
+      show(m);
+      if (!st.member) $('who').classList.add('error');
+      else if (!st.rating) $('stars').classList.add('error');
       return;
     }
-    sending = true; renderCards();
-    $('send').textContent = '보내는 중…'; $('send').setAttribute('aria-disabled', 'true'); $('comment').disabled = true;
+    var symText = $('symText').value.trim();
+    var body = { member: st.member, rating: st.rating, chips: st.chips.slice(), comment: $('comment').value.trim(), consent: true,
+                 symptom: st.symptoms.length || symText ? { items: st.symptoms.slice(), text: symText } : null };
+    sending = true; renderSend();
     try {
-      await HansangAPI.request('POST', '/api/shares/' + encodeURIComponent(token) + '/feedback', { json: { answers: picked, comment: comment } });
-      try { localStorage.setItem(SENT_KEY, '1'); } catch (e) {}
-      showDone(false);
+      var res = await HansangAPI.request('POST', '/api/shares/' + encodeURIComponent(token) + '/responses', { json: body });
+      var r = res.response;
+      saveMine({ member: r.member, rating: r.rating, chips: r.chips, comment: r.comment, symptom: r.symptom });
+      showDone(r);
     } catch (e) {
       show(e && e.message ? e.message : '보내지 못했어요. 다시 눌러 주세요');
-      if (e && e.status === 410) { share.active = false; setState('off', '링크가 꺼져 있어요', '보낸 사람이 링크를 꺼서 지금은 의견을 남길 수 없어요.'); }
+      if (e && e.status === 410) { share.open = false; setState('링크가 닫혔어요', '링크를 껐거나 하루가 지나서 지금은 의견을 남길 수 없어요.'); }
     } finally {
-      sending = false;
-      $('send').textContent = '의견 보내기'; $('send').setAttribute('aria-disabled', 'false'); $('comment').disabled = false;
-      if (!$('form').hidden) renderCards();
+      sending = false; if (!$('form').hidden) renderSend();
     }
   });
 
-  $('toDish').addEventListener('click', function () { if (share) location.href = 'dish.html?p=' + encodeURIComponent(share.postId); });
-  $('toApp').addEventListener('click', function () { location.href = 'index.html'; });
   load();
 })();
 </script>

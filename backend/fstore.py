@@ -9,6 +9,8 @@
 - post_likes/{게시물}_{회원}   : 좋아요
 - reports/{자동}             : 신고 이력
 - feedback/{자동}            : 식사 후 의견
+- shares/{링크}              : 가족 의견 링크 (메뉴·사진·가족 별칭, 하루 뒤 만료)
+- share_responses/{링크}_{n} : 링크로 받은 가족 한 명의 의견 (별점·느낌·불편 신고)
 - records/{번호}             : 나만의 레시피북
 - recipe_images/{번호}        : AI 요리 사진 정보 (key = 띄어쓰기 뺀 요리 이름)
 - photos/{key}               : 사진 파일 (게시물 post-번호 / 기록 photo_key / 요리 사진 img-번호)
@@ -22,7 +24,7 @@ import io
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import firebase_admin
@@ -173,6 +175,7 @@ def delete_user(uid: int) -> None:
     _delete_where("post_likes", "user_id", uid)
     _delete_where("feedback", "user_id", uid)
     _delete_where("shares", "user_id", uid)
+    _delete_where("share_responses", "owner_id", uid)
     for doc in db().collection("records").where(filter=FieldFilter("user_id", "==", uid)).stream():
         d = doc.to_dict()
         if d.get("photo_key"):
@@ -286,8 +289,12 @@ def add_feedback(**fields) -> None:
 
 
 # ---------------------------------------------------------------- 가족 의견 링크 (카카오톡으로 보내는 링크)
+SHARE_HOURS = 24   # 링크는 하루 동안 열려요 (다시 켜면 하루 연장)
+
+
 def add_share(token: str, **fields) -> dict:
-    fields.update(active=True, responses=0, created_at=now())
+    t = now()
+    fields.update(active=True, reflect=True, created_at=t, expires_at=t + timedelta(hours=SHARE_HOURS))
     db().collection("shares").document(token).set(fields)
     return dict(fields, token=token)
 
@@ -305,44 +312,61 @@ def find_share(uid: int, post_id: int) -> dict | None:
     return None
 
 
-def set_share_active(token: str, active: bool) -> None:
-    db().collection("shares").document(token).update({"active": active})
+def update_share(token: str, renew: bool = False, **fields) -> None:
+    if renew:
+        fields.update(active=True, expires_at=now() + timedelta(hours=SHARE_HOURS))
+    db().collection("shares").document(token).update(fields)
 
 
-def add_share_feedback(token: str, owner_id: int, title: str, answers: dict, comment: str, limit: int) -> bool:
-    """받은 사람이 남긴 의견. 링크 하나에 의견이 너무 많이 쌓이지 않게 limit 개까지만 받아요."""
-    ref = db().collection("shares").document(token)
-
-    @firestore.transactional
-    def run(tx):
-        n = int(ref.get(transaction=tx).to_dict().get("responses", 0))
-        if n >= limit:
-            return False
-        tx.update(ref, {"responses": n + 1})
-        tx.set(db().collection("feedback").document(), {
-            "user_id": owner_id, "share_token": token, "source": "link", "recipe_id": "", "recipe_title": title,
-            "answers": _j(answers), "comment": comment, "created_at": now()})
-        return True
-    return run(db().transaction())
-
-
-def share_responses(uid: int) -> dict[str, list[dict]]:
-    """내 링크로 받은 의견을 링크별로 모아요"""
-    out: dict[str, list[dict]] = {}
-    q = db().collection("feedback").where(filter=FieldFilter("user_id", "==", uid))
-    for doc in q.stream():
-        d = doc.to_dict()
-        if d.get("source") != "link":
-            continue
-        out.setdefault(d["share_token"], []).append(
-            {"answers": _uj(d.get("answers")) or {}, "comment": d.get("comment") or "", "created_at": d.get("created_at")})
-    for rows in out.values():
-        rows.sort(key=lambda r: r["created_at"] or now())
-    return out
+def share_open(s: dict) -> bool:
+    return bool(s.get("active")) and s.get("expires_at") is not None and s["expires_at"] > now()
 
 
 def shares_of(uid: int) -> list[dict]:
     return [dict(d.to_dict(), token=d.id) for d in db().collection("shares").where(filter=FieldFilter("user_id", "==", uid)).stream()]
+
+
+# 가족 한 명당 의견 한 개 (다시 보내면 고쳐져요): share_responses/{링크}_{가족 순번}
+def _resp(doc) -> dict:
+    d = doc.to_dict()
+    d["symptom"] = _uj(d.pop("symptom_json", None))
+    return d
+
+
+def put_response(token: str, idx: int, **fields) -> dict:
+    ref = db().collection("share_responses").document(f"{token}_{idx}")
+    old = ref.get()
+    t = now()
+    fields["symptom_json"] = _j(fields.pop("symptom", None))
+    fields.update(token=token, idx=idx, updated_at=t, ack=False, suspects=[])   # 고치면 다시 확인할 수 있게 표시를 풀어요
+    fields["created_at"] = old.to_dict().get("created_at", t) if old.exists else t
+    ref.set(fields)
+    return dict(fields, symptom=_uj(fields["symptom_json"]))
+
+
+def update_response(token: str, idx: int, **fields) -> bool:
+    ref = db().collection("share_responses").document(f"{token}_{idx}")
+    if not ref.get().exists:
+        return False
+    ref.update(fields)
+    return True
+
+
+def delete_response(token: str, idx: int) -> None:
+    db().collection("share_responses").document(f"{token}_{idx}").delete()
+
+
+def responses_of(token: str) -> list[dict]:
+    rows = [_resp(d) for d in db().collection("share_responses").where(filter=FieldFilter("token", "==", token)).stream()]
+    return sorted(rows, key=lambda r: r["idx"])
+
+
+def responses_by_share(uid: int) -> dict[str, list[dict]]:
+    out: dict[str, list[dict]] = {}
+    for d in db().collection("share_responses").where(filter=FieldFilter("owner_id", "==", uid)).stream():
+        r = _resp(d)
+        out.setdefault(r["token"], []).append(r)
+    return out
 
 
 # ---------------------------------------------------------------- 나만의 레시피북

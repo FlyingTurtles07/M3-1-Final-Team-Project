@@ -9,7 +9,8 @@
 | 가족 프로필·확인한 재료·보관함 저장 | `GET/PUT /api/me/data/{family,pantry,saved,collections}` |
 | 다른 집 한상 (사진·레시피 공유, 좋아요, 신고, 내 글 삭제) | `GET/POST /api/posts`, `GET /api/posts/{id}/photo`, `POST /api/posts/{id}/like`, `POST /api/posts/{id}/report`, `DELETE /api/posts/{id}` |
 | 식사 후 의견 | `POST /api/feedback` |
-| 가족 의견 링크 (카카오톡으로 보내고, 받은 사람은 가입 없이 의견 남김) | `POST /api/shares`, `GET /api/shares/{token}`, `PUT /api/shares/{token}`(끄기·켜기), `POST /api/shares/{token}/feedback` |
+| 가족 의견 링크 (카카오톡으로 보내고, 받은 사람은 가입 없이 별점·느낌·의견·몸 불편 신고, 하루 뒤 닫힘) | `POST /api/shares`, `GET /api/shares/{token}`, `PUT /api/shares/{token}`(끄기·다시 열기·보내는 사람·다음 추천 반영), `POST /api/shares/{token}/responses` |
+| 가족 반응 (링크를 보낸 사람만: 확인·의심 재료 표시·지우기) | `GET /api/shares/{token}/reactions`, `PUT/DELETE /api/shares/{token}/responses/{n}` |
 | 공유한 요리 페이지 (인스타그램 QR로 열림, 로그인 없이) | `GET /api/posts/{id}` |
 | 나만의 레시피북 (가족 의견 링크로 받은 의견 포함) | `GET/POST /api/records`, `DELETE /api/records/{id}` |
 | 사진 재료 인식 (사진은 저장하지 않음) | `POST /api/ingredients/analyze` |
