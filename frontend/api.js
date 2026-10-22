@@ -14,6 +14,13 @@
   }
   var BASE = pickBase();
 
+  // 다른 사람에게 보내는 화면 주소(링크·QR). 파일로 열었을 때는 배포된 화면 주소를 써요.
+  var SITE = 'https://m3-1-final-team-project.onrender.com/';
+  function siteUrl(page) {
+    if (location.protocol === 'http:' || location.protocol === 'https:') return new URL(page, location.href).href;
+    return SITE + page;
+  }
+
   function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function set(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
 
@@ -68,7 +75,7 @@
 
   window.HansangAPI = {
     base: BASE, token: token, user: user, isLoggedIn: function () { return !!token(); },
-    setSession: setSession, clearSession: clearSession, request: request, loadDoc: loadDoc, saveDoc: saveDoc,
+    siteUrl: siteUrl, setSession: setSession, clearSession: clearSession, request: request, loadDoc: loadDoc, saveDoc: saveDoc,
     absUrl: function (u) { return u && /^https?:|^data:|^blob:/.test(u) ? u : u; }
   };
 })();

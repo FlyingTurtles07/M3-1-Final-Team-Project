@@ -226,18 +226,52 @@
   .sheet-btn svg { width: 22px; height: 22px; }
   .sheet-btn.kakao { background: #fee500; border-color: #fee500; color: #191919; }
   /* 카카오톡 공유 창: 화면 가운데에 띄워요 */
-  #outSheet { align-items: center; justify-content: center; padding: 16px; z-index: 40; }   /* 아래 버튼들보다 위에 */
+  #outSheet { align-items: center; justify-content: center; padding: 12px; z-index: 40; }   /* 아래 버튼들보다 위에 */
   #outSheet .sheet-panel {
     width: 100%; max-width: 360px; max-height: calc(100% - 32px); overflow-y: auto;
-    border-radius: 24px; padding: 22px 20px 16px; box-shadow: 0 18px 40px rgba(40, 26, 20, .28);
+    border-radius: 24px; padding: 20px 18px 12px; box-shadow: 0 18px 40px rgba(40, 26, 20, .28); scrollbar-width: none;
     transform: scale(.94); opacity: 0; transition: transform .2s ease, opacity .2s ease;
   }
   #outSheet.open .sheet-panel { transform: none; opacity: 1; }
   #outSheet .sheet-grip { display: none; }
   #outSheet.open ~ .toast { top: 24px; bottom: auto; }   /* 공유 창이 열려 있으면 알림을 맨 위에 띄워요 */
-  .out-desc { margin: -6px 0 14px; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); }
-  .out-note { margin: 4px 0 2px; font-size: 11.5px; line-height: 1.5; font-weight: 500; color: var(--muted); text-align: center; }
+  .out-desc { margin: 0 4px 12px; text-align: center; font-size: 12.5px; line-height: 1.5; font-weight: 600; color: var(--muted); word-break: keep-all; }
+  .out-note { margin: 10px 4px 2px; font-size: 11.5px; line-height: 1.5; font-weight: 500; color: var(--muted); text-align: center; }
   .sheet-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .sheet-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+  #outSheet .sheet-btn { height: 52px; margin-top: 10px; font-size: 15.5px; }
+  #outSheet .sheet-btn svg { width: 20px; height: 20px; }
+  #outSheet .sheet-btn.ghost { height: 42px; margin-top: 4px; font-size: 14px; }
+  .out-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 14px; padding: 4px; border-radius: 16px; background: #ebe3d6; }
+  .out-tabs[hidden] { display: none; }
+  .out-tab {
+    height: 42px; border: 0; border-radius: 12px; background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    color: var(--muted); font-size: 14px; font-weight: 800; transition: background .15s, color .15s;
+  }
+  .out-tab svg { width: 18px; height: 18px; }
+  .out-tab[aria-selected="true"] { background: #fff; color: var(--ink-deep); box-shadow: 0 2px 6px rgba(40, 26, 20, .12); }
+  .out-tab:focus-visible, .off-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .out-pane[hidden] { display: none; }
+  .preview-box { padding: 12px; border-radius: 18px; background: #fbf3e6; border: 1.5px solid #eedfc8; }
+  .preview-label { margin: 0 0 8px 2px; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+  .msg-card { overflow: hidden; border-radius: 14px; background: #fff; border: 1px solid #eadfd2; transition: opacity .2s; }
+  .msg-card img { display: block; width: 100%; height: 118px; object-fit: cover; background: #e8e0d0; }
+  .mc-body { padding: 11px 12px 10px; }
+  .mc-body b { display: block; font-size: 15px; font-weight: 800; color: var(--ink-deep); overflow-wrap: anywhere; }
+  .mc-body small { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .mc-link { display: block; padding: 10px; border-top: 1px solid #eadfd2; text-align: center; font-size: 13.5px; font-weight: 800; color: #a8561c; }
+  .link-off .msg-card { opacity: .45; }
+  .safe-note {
+    display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 0; padding: 12px 14px; border-radius: 14px;
+    background: #e3f1e6; color: #2d5a3a; font-size: 12.5px; line-height: 1.5; font-weight: 600;
+  }
+  .safe-note svg { flex: none; width: 20px; height: 20px; margin-top: 1px; }
+  .off-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 2px 0; font-size: 12px; line-height: 1.45; font-weight: 600; color: var(--muted); }
+  .off-btn { flex: none; padding: 6px 4px; border: 0; background: none; cursor: pointer; color: var(--danger); font-size: 13px; font-weight: 800; }
+  .off-btn.on { color: #2f5e2a; }
+  .qr-card-img { display: block; width: 100%; max-width: 240px; min-height: 120px; margin: 0 auto; border-radius: 14px; background: #ece5d8; box-shadow: 0 4px 14px rgba(40, 26, 20, .15); }
+  .out-wait { margin: 6px 0 4px; padding: 14px 10px; text-align: center; font-size: 13.5px; line-height: 1.55; font-weight: 700; color: var(--muted); }
 
   .toast {
     position: absolute; z-index: 20; left: 50%; bottom: 190px;
@@ -345,19 +379,56 @@
       <button class="sheet-btn ghost" type="button" id="pickCancel">취소</button>
     </div>
   </div>
-  <!-- 카카오톡으로 공유 시트 -->
+  <!-- 가족·친구에게 보내기: 링크(카카오톡 → 가족 의견) / QR(인스타그램 → 공유한 요리 페이지) -->
   <div class="sheet" id="outSheet" role="dialog" aria-modal="true" aria-labelledby="outTitle">
     <div class="sheet-backdrop" id="outBackdrop"></div>
     <div class="sheet-panel">
       <div class="sheet-grip"></div>
-      <h2 class="sheet-title" id="outTitle">다른 앱에도 공유할까요?</h2>
-      <p class="out-desc">올린 사진과 레시피를 카카오톡으로 보낼 수 있어요.</p>
-      <button class="sheet-btn kakao" type="button" id="outKakao">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4C6.900 4 3 7.200 3 11.100c0 2.500 1.600 4.700 4.100 5.900l-.9 3.300c-.1.300.3.600.6.400l3.900-2.600c.4 0 .9.1 1.300.1 5.100 0 9-3.200 9-7.100S17.100 4 12 4z"/></svg>
-        카카오톡으로 보내기
-      </button>
-      <button class="sheet-btn" type="button" id="outSave">사진 저장 · 레시피 글 복사</button>
-      <p class="out-note">앱 밖으로 보낸 사진과 글은 받는 사람이나 다른 사람이 볼 수 있어요. 우리 가족 이름과 건강 정보는 들어가지 않아요.</p>
+      <h2 class="sheet-title" id="outTitle">가족·친구에게 보내기</h2>
+      <div class="out-tabs" id="outTabs" role="tablist" aria-label="보내는 방법">
+        <button class="out-tab" type="button" role="tab" id="tabLink" aria-selected="true" aria-controls="paneLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.500 4.500 0 0 0 6.400 0l3-3a4.500 4.500 0 0 0-6.400-6.400l-1.200 1.200"/><path d="M14 10a4.500 4.500 0 0 0-6.400 0l-3 3a4.500 4.500 0 0 0 6.400 6.400l1.200-1.200"/></svg>링크 복사</button>
+        <button class="out-tab" type="button" role="tab" id="tabQr" aria-selected="false" aria-controls="paneQr" tabindex="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.500" y="3.500" width="6.500" height="6.500" rx="1"/><rect x="14" y="3.500" width="6.500" height="6.500" rx="1"/><rect x="3.500" y="14" width="6.500" height="6.500" rx="1"/><path d="M14 14h3v3h-3zM20.500 14v.01M17 20.500h3.500V17M14 20.500v.01"/></svg>QR 코드</button>
+      </div>
+
+      <!-- 링크: 카카오톡 단톡방에 올리면 가족이 눌러서 의견을 남겨요 -->
+      <div class="out-pane" id="paneLink" role="tabpanel" aria-labelledby="tabLink">
+        <p class="out-desc">카카오톡 단톡방에 링크를 올리면 가족이 눌러서 바로 의견을 남겨요. 가입은 필요 없어요.</p>
+        <div class="preview-box" id="linkPreview">
+          <p class="preview-label">이런 메시지가 가요</p>
+          <div class="msg-card">
+            <img id="mcPhoto" alt="">
+            <div class="mc-body"><b id="mcTitle"></b><small>가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.</small></div>
+            <span class="mc-link">의견 남기러 가기</span>
+          </div>
+        </div>
+        <button class="sheet-btn kakao" type="button" id="outKakao">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4C6.900 4 3 7.200 3 11.100c0 2.500 1.600 4.700 4.100 5.900l-.9 3.300c-.1.300.3.600.6.400l3.900-2.600c.4 0 .9.1 1.300.1 5.100 0 9-3.200 9-7.100S17.100 4 12 4z"/></svg>
+          카카오톡으로 보내기
+        </button>
+        <button class="sheet-btn" type="button" id="outCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.500 4.500 0 0 0 6.400 0l3-3a4.500 4.500 0 0 0-6.400-6.400l-1.200 1.200"/><path d="M14 10a4.500 4.500 0 0 0-6.400 0l-3 3a4.500 4.500 0 0 0 6.400 6.400l1.200-1.200"/></svg>링크만 복사하기</button>
+        <p class="safe-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.500 6v5.500c0 4.600 3.200 8.300 7.500 9.500 4.300-1.200 7.500-4.900 7.500-9.500V6z"/></svg><span>가족 화면에는 메뉴와 가족 별칭만 보여요. 알레르기 같은 건강 정보는 절대 보이지 않아요.</span></p>
+        <div class="off-row"><span id="offText">끄면 이 링크로는 의견을 남길 수 없어요.</span><button class="off-btn" type="button" id="outOff">링크 끄기</button></div>
+      </div>
+
+      <!-- QR: 인스타그램에 올리면, 찍은 사람에게 공유한 요리 페이지가 열려요 -->
+      <div class="out-pane" id="paneQr" role="tabpanel" aria-labelledby="tabQr" hidden>
+        <p class="out-desc">QR 이미지를 인스타그램에 올려 보세요. QR을 찍으면 이 요리 사진과 레시피 페이지가 열려요.</p>
+        <div class="preview-box">
+          <p class="preview-label">인스타그램에 올릴 QR 이미지</p>
+          <img class="qr-card-img" id="qrImg" alt="요리 사진과 QR 코드가 담긴 이미지">
+        </div>
+        <button class="sheet-btn primary" type="button" id="outQrSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.500l5 5 5-5M5 20h14"/></svg>QR 이미지 저장하기</button>
+        <button class="sheet-btn" type="button" id="outPageCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.500 4.500 0 0 0 6.400 0l3-3a4.500 4.500 0 0 0-6.400-6.400l-1.200 1.200"/><path d="M14 10a4.500 4.500 0 0 0-6.400 0l-3 3a4.500 4.500 0 0 0 6.400 6.400l1.200-1.200"/></svg>요리 페이지 링크 복사</button>
+        <p class="out-note">요리 페이지에는 사진·코멘트·공통 레시피만 보여요. 우리 가족 이름과 건강 정보는 들어가지 않아요.</p>
+      </div>
+
+      <!-- 서버에 올리지 못했을 때 (로그인 전·연결 실패) -->
+      <div class="out-pane" id="paneNone" hidden>
+        <p class="out-wait" id="noneText">로그인하고 공유하면 가족에게 보낼 링크와 QR을 만들 수 있어요.</p>
+        <button class="sheet-btn primary" type="button" id="outLogin">로그인하기</button>
+        <button class="sheet-btn" type="button" id="outSave">사진 저장 · 레시피 글 복사</button>
+      </div>
+
       <button class="sheet-btn ghost" type="button" id="outDone">다른 집 한상 보러 가기</button>
       <button class="sheet-btn ghost" type="button" id="outBook">나만의 레시피북 보기</button>
     </div>
@@ -370,6 +441,7 @@
 </main>
 
 <script src="api.js"></script>
+<script src="qrcode.min.js"></script>
 <script>
   /* =====================================================
    * 1) 앞 화면에서 넘어온 데이터
@@ -656,13 +728,15 @@
   }
 
   // 나만의 레시피북 저장: 로그인했으면 서버에, 아니면 이 기기에 (작은 사진으로)
+  var bookRecordId = null;
   async function saveToBook(record) {
     if (window.HansangAPI && HansangAPI.isLoggedIn()) {
       try {
         var fd = new FormData();
         fd.append('photo', photoBlob, 'meal.jpg');
         fd.append('data', JSON.stringify(record));
-        await HansangAPI.request('POST', '/api/records', { form: fd, timeout: 90000 });
+        var rec = await HansangAPI.request('POST', '/api/records', { form: fd, timeout: 90000 });
+        bookRecordId = rec && rec.id;
         return 'server';
       } catch (e) { /* 서버를 못 쓰면 이 기기에 */ }
     }
@@ -715,14 +789,14 @@
 
       window.lastRecord = record;
       // 공유: 로그인했으면 서버에 올려서 다른 가족도 볼 수 있게 해요
-      var uploaded = false;
+      var uploaded = false, postId = null;
       if (vis === 'share' && window.HansangAPI && HansangAPI.isLoggedIn()) {
         try {
           var up = new FormData();
           up.append('photo', photoBlob, 'meal.jpg');
           up.append('data', JSON.stringify(record));
-          await HansangAPI.request('POST', '/api/posts', { form: up, timeout: 90000 });
-          uploaded = true;
+          var post = await HansangAPI.request('POST', '/api/posts', { form: up, timeout: 90000 });
+          uploaded = true; postId = post.id;
         } catch (err) {
           if (err && err.status && err.status !== 0 && err.status !== 401) throw err;   // 사진 형식 등 서버가 거절한 경우
         }
@@ -750,7 +824,8 @@
       done = true; doneVis = vis;
       if (vis === 'share') {
         if (uploaded) show('다른 사용자에게 공유했어요 · 레시피북에도 담았어요');
-        setTimeout(openOut, 500);   // 카카오톡으로도 보낼지 물어봐요
+        if (postId) await makeShare(postId);
+        setTimeout(openOut, 500);   // 가족에게 링크·QR로도 보낼지 물어봐요
       } else {
         show(inBook === 'server' ? '나만의 레시피북에 저장했어요' : '이 기기의 레시피북에 저장했어요 (로그인하면 어디서나 볼 수 있어요)');
         setTimeout(function () { location.href = 'recipe-book.html'; }, 1200);
@@ -763,22 +838,225 @@
   }
 
   /* =====================================================
-   * 7) 카카오톡으로 공유
-   *    - 휴대폰(https 주소)에서는 휴대폰 공유창(navigator.share)으로 사진+글을 보내요.
-   *      공유창에서 카카오톡을 고르면 돼요.
-   *    - 카카오톡: KAKAO_JS_KEY 를 넣으면 카카오 SDK로 바로 보내요 (Kakao Developers에서 앱 키 발급 + 도메인 등록 필요).
-   *    - PC나 파일로 연 화면처럼 공유창을 못 쓰면: 사진을 저장하고 레시피 글을 복사해 줘요.
+   * 7) 가족·친구에게 보내기
+   *  [링크 복사] 가족 의견 링크(family-feedback.html?s=...)를 카카오톡 단톡방에 올려요.
+   *              받은 사람은 가입 없이 의견을 남기고, 의견은 나만의 레시피북에 모여요.
+   *              카카오톡: KAKAO_JS_KEY 를 넣으면 카카오 SDK로 카드를 보내요 (Kakao Developers 앱 키 + 도메인 등록 필요).
+   *              비워 두면 휴대폰 공유창 → 안 되면 링크를 복사해요.
+   *  [QR 코드]  공유한 요리 페이지(dish.html?p=...) QR을 사진과 함께 이미지로 만들어요. 인스타그램에 올리면 돼요.
    * ===================================================== */
-  var KAKAO_JS_KEY = '';   // 예: 'abcd1234...' (비워 두면 휴대폰 공유창을 써요)
+  var KAKAO_JS_KEY = '';   // 예: 'abcd1234...'
 
   var outSheet = $('outSheet');
-  function openOut() { outSheet.classList.add('open'); $('outKakao').focus(); }
+  var shareLink = null;      // { token, active, postId, photoUrl }
+  var sharePostId = null;
+  var qrBlob = null;
+
+  async function makeShare(pid) {
+    sharePostId = pid;
+    try {
+      shareLink = await HansangAPI.request('POST', '/api/shares', { json: {
+        postId: pid, recordId: bookRecordId,
+        members: (members || []).map(function (m) { return m.name; }).filter(Boolean)
+      } });
+    } catch (e) { shareLink = null; }
+  }
+  function feedbackUrl() { return HansangAPI.siteUrl('family-feedback.html?s=' + encodeURIComponent(shareLink.token)); }
+  function dishUrl() { return HansangAPI.siteUrl('dish.html?p=' + encodeURIComponent(sharePostId)); }
+  function mealWord() { var h = new Date().getHours(); return h < 11 ? '오늘 아침' : h < 16 ? '오늘 점심' : '오늘 저녁'; }
+
+  function openOut() {
+    var can = !!sharePostId;
+    $('outTabs').hidden = !can;
+    $('paneNone').hidden = can;
+    if (!can) {
+      var loggedIn = window.HansangAPI && HansangAPI.isLoggedIn();
+      $('noneText').textContent = loggedIn ? '서버에 연결하지 못해서 링크와 QR을 만들지 못했어요. 사진과 레시피 글은 저장해서 보낼 수 있어요.'
+                                           : '로그인하고 공유하면 가족에게 보낼 링크와 QR을 만들 수 있어요.';
+      $('outLogin').hidden = loggedIn;
+      $('paneLink').hidden = true; $('paneQr').hidden = true;
+    } else {
+      $('mcTitle').textContent = mealWord() + ' ' + sharedRecipe.title + ', 어땠어요?';
+      if (photoUrl) $('mcPhoto').src = photoUrl;
+      renderLink();
+      pickTab('link');
+      buildQr();
+    }
+    outSheet.classList.add('open');
+    (can ? $('tabLink') : $('outSave')).focus();
+  }
   function closeOut() { outSheet.classList.remove('open'); }
   $('outBackdrop').addEventListener('click', closeOut);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && outSheet.classList.contains('open')) closeOut(); });
   $('outDone').addEventListener('click', function () { location.href = 'browse.html'; });
   $('outBook').addEventListener('click', function () { location.href = 'recipe-book.html'; });
+  $('outLogin').addEventListener('click', function () { location.href = 'login.html'; });
 
-  // 보낼 글: 레시피를 함께 공유하기로 했으면 "재료 / 양념 / 만드는법" 형식으로 넣어요
+  // 반반 탭: 링크 복사 / QR 코드
+  function pickTab(which) {
+    [['link', 'tabLink', 'paneLink'], ['qr', 'tabQr', 'paneQr']].forEach(function (t) {
+      var on = t[0] === which;
+      $(t[1]).setAttribute('aria-selected', on ? 'true' : 'false');
+      $(t[1]).tabIndex = on ? 0 : -1;
+      $(t[2]).hidden = !on;
+    });
+  }
+  $('tabLink').addEventListener('click', function () { pickTab('link'); });
+  $('tabQr').addEventListener('click', function () { pickTab('qr'); });
+  $('outTabs').addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    var toQr = $('tabLink').getAttribute('aria-selected') === 'true';
+    pickTab(toQr ? 'qr' : 'link'); $(toQr ? 'tabQr' : 'tabLink').focus();
+  });
+
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+      var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+      document.body.removeChild(ta); return ok;
+    }
+  }
+
+  /* ---------- 링크 (카카오톡 → 가족 의견) ---------- */
+  function linkReady() {
+    if (!shareLink) { show('링크를 만들지 못했어요. 잠시 뒤 레시피북에서 다시 시도해 주세요'); return false; }
+    if (!shareLink.active) { show('링크가 꺼져 있어요. 아래 ‘링크 다시 켜기’를 눌러 주세요'); return false; }
+    return true;
+  }
+  function renderLink() {
+    var on = !!(shareLink && shareLink.active);
+    $('linkPreview').classList.toggle('link-off', !on);
+    $('outKakao').setAttribute('aria-disabled', on ? 'false' : 'true');
+    $('outCopy').setAttribute('aria-disabled', on ? 'false' : 'true');
+    $('outOff').hidden = !shareLink;
+    $('outOff').textContent = on ? '링크 끄기' : '링크 다시 켜기';
+    $('outOff').classList.toggle('on', !on);
+    $('offText').textContent = !shareLink ? '링크를 만들지 못했어요. QR 코드로는 보낼 수 있어요.'
+      : on ? '끄면 이 링크로는 의견을 남길 수 없어요.' : '링크를 껐어요. 다시 켜면 같은 링크로 의견을 받아요.';
+  }
+  function inviteText() { return '[온가족 한상] ' + mealWord() + ' ' + sharedRecipe.title + ', 어땠어요? 링크를 눌러 의견을 남겨 주세요. 1분이면 끝나요.'; }
+
+  function loadKakao() {
+    return new Promise(function (resolve, reject) {
+      if (window.Kakao) return resolve(window.Kakao);
+      var sc = document.createElement('script');
+      sc.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js'; sc.crossOrigin = 'anonymous';
+      sc.onload = function () { resolve(window.Kakao); }; sc.onerror = reject;
+      document.head.appendChild(sc);
+    });
+  }
+  async function kakaoSend(url) {
+    var Kakao = await loadKakao();
+    if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+    Kakao.Share.sendDefault({
+      objectType: 'feed',
+      content: {
+        title: mealWord() + ' ' + sharedRecipe.title + ', 어땠어요?',
+        description: '가족이 보낸 온가족 한상 초대예요. 1분이면 끝나요.',
+        imageUrl: shareLink.photoUrl,
+        link: { mobileWebUrl: url, webUrl: url }
+      },
+      buttons: [{ title: '의견 남기러 가기', link: { mobileWebUrl: url, webUrl: url } }]
+    });
+  }
+  $('outKakao').addEventListener('click', async function () {
+    if (!linkReady()) return;
+    var url = feedbackUrl();
+    if (KAKAO_JS_KEY && shareLink.photoUrl) {
+      try { await kakaoSend(url); return; } catch (e) { /* SDK를 못 쓰면 아래 공유창으로 */ }
+    }
+    var data = { title: '온가족 한상', text: inviteText(), url: url };
+    if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+      try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    var ok = await copyText(inviteText() + '\n' + url);
+    show(ok ? '링크를 복사했어요. 카카오톡 단톡방에 붙여 넣어 주세요' : '복사하지 못했어요: ' + url);
+  });
+  $('outCopy').addEventListener('click', async function () {
+    if (!linkReady()) return;
+    var ok = await copyText(feedbackUrl());
+    show(ok ? '링크를 복사했어요. 카카오톡 단톡방에 붙여 넣어 주세요' : '복사하지 못했어요');
+  });
+  $('outOff').addEventListener('click', async function () {
+    if (!shareLink) return;
+    var next = !shareLink.active;
+    if (!next && !confirm('링크를 끌까요?\n끄면 이 링크로는 의견을 남길 수 없어요.')) return;
+    try {
+      await HansangAPI.request('PUT', '/api/shares/' + encodeURIComponent(shareLink.token), { json: { active: next } });
+      shareLink.active = next; renderLink();
+      show(next ? '링크를 다시 켰어요' : '링크를 껐어요');
+    } catch (e) { show(e && e.message ? e.message : '바꾸지 못했어요. 다시 눌러 주세요'); }
+  });
+
+  /* ---------- QR (인스타그램 → 공유한 요리 페이지) ---------- */
+  function loadImg(src) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); }; img.onerror = function () { resolve(null); };
+      img.src = src;
+    });
+  }
+  function fitText(ctx, text, maxW, size, weight) {
+    for (; size > 30; size -= 2) { ctx.font = weight + ' ' + size + 'px "Noto Sans KR", "Malgun Gothic", sans-serif'; if (ctx.measureText(text).width <= maxW) break; }
+    if (ctx.measureText(text).width > maxW) { while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1); text += '…'; }
+    return text;
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  // 인스타그램 세로 사진 비율(4:5) 카드: 요리 사진 + 이름 + QR
+  async function buildQr() {
+    if (qrBlob || typeof qrcode !== 'function') { if (typeof qrcode !== 'function') show('QR을 만들지 못했어요. 페이지를 새로 고쳐 주세요'); return; }
+    var W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    var ctx = c.getContext('2d');
+    try { await document.fonts.load('800 56px "Noto Sans KR"'); } catch (e) {}
+    ctx.fillStyle = '#f4f2ec'; ctx.fillRect(0, 0, W, H);
+    var img = photoUrl ? await loadImg(photoUrl) : null;
+    if (img) {   // 사진은 가운데를 잘라 꽉 채워요
+      var ph = 640, sc = Math.max(W / img.width, ph / img.height), sw = W / sc, sh = ph / sc;
+      ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, W, ph);
+    }
+    ctx.fillStyle = '#fffcf8'; roundRect(ctx, 0, 600, W, H - 600, 48); ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#231713'; ctx.fillText(fitText(ctx, sharedRecipe.title, 940, 60, 800), W / 2, 700);
+
+    var qr = qrcode(0, 'M'); qr.addData(dishUrl()); qr.make();
+    var n = qr.getModuleCount(), box = 400, cell = Math.floor(box / (n + 8)), size = cell * (n + 8);
+    var qx = Math.round((W - size) / 2), qy = 740;
+    ctx.fillStyle = '#ffffff'; roundRect(ctx, qx, qy, size, size, 24); ctx.fill();
+    ctx.strokeStyle = '#eadfd2'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#231713';
+    for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (qr.isDark(r, k)) ctx.fillRect(qx + (k + 4) * cell, qy + (r + 4) * cell, cell, cell);
+
+    ctx.fillStyle = '#6b5a52'; ctx.font = '700 34px "Noto Sans KR", "Malgun Gothic", sans-serif';
+    ctx.fillText('카메라로 QR을 찍으면 레시피를 볼 수 있어요', W / 2, qy + size + 70);
+    ctx.fillStyle = '#c0650f'; ctx.font = '800 36px "Noto Sans KR", "Malgun Gothic", sans-serif';
+    ctx.fillText('#온가족한상', W / 2, qy + size + 130);
+
+    qrBlob = await new Promise(function (resolve) { c.toBlob(resolve, 'image/png'); });
+    if (qrBlob) $('qrImg').src = URL.createObjectURL(qrBlob);
+  }
+  $('outQrSave').addEventListener('click', async function () {
+    if (!qrBlob) await buildQr();
+    if (!qrBlob) return;
+    var file = new File([qrBlob], 'onfamily-hansang-qr.png', { type: 'image/png' });
+    // 휴대폰: 공유창에서 인스타그램이나 '이미지 저장'을 고를 수 있어요
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    var url = URL.createObjectURL(qrBlob), a = document.createElement('a');
+    a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    show('QR 이미지를 저장했어요. 인스타그램에 올려 보세요');
+  });
+  $('outPageCopy').addEventListener('click', async function () {
+    var ok = await copyText(dishUrl());
+    show(ok ? '요리 페이지 링크를 복사했어요' : '복사하지 못했어요');
+  });
+
+  /* ---------- 서버에 못 올렸을 때: 사진 저장 + 레시피 글 복사 ---------- */
   function shareText() {
     var r = sharedRecipe, lines = ['[온가족 한상] ' + r.title];
     var comment = $('comment').value.trim();
@@ -799,66 +1077,14 @@
     lines.push('', tags.join(' '));
     return lines.join('\n');
   }
-  function photoFile() { return new File([photoBlob], 'onfamily-hansang.jpg', { type: 'image/jpeg' }); }
-
-  async function copyText(t) {
-    try { await navigator.clipboard.writeText(t); return true; } catch (e) {
-      var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      var ok = false; try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
-      document.body.removeChild(ta); return ok;
-    }
-  }
-  // 휴대폰 공유창 (사진 + 글). 못 쓰는 환경이면 false
-  async function nativeShare(withText) {
-    var f = photoFile(), data = withText ? { files: [f], title: sharedRecipe.title, text: shareText() } : { files: [f] };
-    if (!navigator.share || !navigator.canShare || !navigator.canShare(data)) return false;
-    try { await navigator.share(data); return true; }
-    catch (e) { return e && e.name === 'AbortError'; }          // 사용자가 공유창을 닫은 경우도 괜찮아요
-  }
-  // 공유창을 못 쓸 때: 사진 저장 + 글 복사
-  async function saveAndCopy(why) {
+  async function saveAndCopy() {
     var url = URL.createObjectURL(photoBlob), a = document.createElement('a');
     a.href = url; a.download = 'onfamily-hansang.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
     var copied = await copyText(shareText());
-    show((why ? why + ' ' : '') + '사진을 저장했어요' + (copied ? ' · 레시피 글도 복사했어요' : ''));
+    show('사진을 저장했어요' + (copied ? ' · 레시피 글도 복사했어요' : ''));
   }
-
-
-  function loadKakao() {
-    return new Promise(function (resolve, reject) {
-      if (window.Kakao) return resolve(window.Kakao);
-      var sc = document.createElement('script');
-      sc.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js'; sc.crossOrigin = 'anonymous';
-      sc.onload = function () { resolve(window.Kakao); }; sc.onerror = reject;
-      document.head.appendChild(sc);
-    });
-  }
-  async function kakaoSend() {
-    var Kakao = await loadKakao();
-    if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
-    var up = await Kakao.Share.uploadImage({ file: [photoFile()] });          // 사진을 카카오 서버에 올려 주소를 받아요
-    var r = sharedRecipe, ing = (r.ing && r.ing.length ? r.ing.map(function (x) { return x[0]; }) : r.ingredients) || [];
-    await copyText(shareText());                                             // 카카오 카드에는 글이 짧게만 들어가서 전체 레시피는 복사해 둬요
-    Kakao.Share.sendDefault({
-      objectType: 'feed',
-      content: {
-        title: '[온가족 한상] ' + r.title,
-        description: (ing.length ? '재료: ' + ing.join(', ') : '') + ($('withRecipe').checked ? ' \u00b7 전체 레시피는 대화창에 붙여넣기 해 주세요' : ''),
-        imageUrl: up.infos.original.url,
-        link: { mobileWebUrl: location.href, webUrl: location.href }
-      }
-    });
-  }
-  $('outKakao').addEventListener('click', async function () {
-    if (KAKAO_JS_KEY) {
-      try { await kakaoSend(); return; } catch (e) { /* SDK를 못 쓰면 아래 공유창으로 */ }
-    }
-    var ok = await nativeShare(true);
-    if (!ok) saveAndCopy('이 화면에서는 카카오톡 공유창을 열 수 없어서');
-  });
-  $('outSave').addEventListener('click', function () { saveAndCopy(''); });
+  $('outSave').addEventListener('click', saveAndCopy);
 
   $('share').addEventListener('click', function () { submit('share'); });
   $('saveOnly').addEventListener('click', function () { submit('private'); });

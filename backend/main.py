@@ -245,6 +245,15 @@ async def create_post(request: Request, data: str = Form(...), photo: UploadFile
     return _post_out(p, _base(request), uid, set())
 
 
+@app.get("/api/posts/{post_id}")
+def get_post(request: Request, post_id: int, uid: int | None = Depends(optional_user)):
+    """공유한 요리 페이지(QR로 들어오는 화면). 로그인하지 않아도 볼 수 있어요."""
+    p = fstore.get_post(post_id)
+    if not p or p.get("hidden"):
+        raise HTTPException(404, "글이 없거나 내려간 글이에요")
+    return _post_out(p, _base(request), uid, fstore.liked_by(uid) if uid else set())
+
+
 @app.get("/api/posts/{post_id}/photo")
 def post_photo(post_id: int):
     p = fstore.get_post(post_id)
@@ -301,6 +310,90 @@ class FeedbackReq(BaseModel):
 def feedback(req: FeedbackReq, uid: int | None = Depends(optional_user)):
     fstore.add_feedback(user_id=uid, recipe_id=req.recipeId[:80], recipe_title=req.recipeTitle[:80],
                         answers=req.answers, comment=req.comment)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- 가족 의견 링크 (카카오톡 단톡방에 보내는 링크)
+# 받은 사람은 가입 없이 링크만 열어서 의견을 남겨요. 화면에는 메뉴 이름·사진·가족 별칭만 보여요 (건강 정보 없음).
+SHARE_MAX_RESPONSES = 30
+
+
+class ShareReq(BaseModel):
+    postId: int
+    recordId: int | None = None
+    members: list[str] = Field(default_factory=list)
+
+
+class ShareFeedbackReq(BaseModel):
+    answers: dict[str, str] = Field(default_factory=dict)   # {가족 별칭: 'ate' | 'left'}
+    comment: str = Field(default="", max_length=200)
+
+
+class ShareActiveReq(BaseModel):
+    active: bool
+
+
+def _share_out(s: dict, base: str) -> dict:
+    p = fstore.get_post(s["post_id"])
+    photo = None
+    if p and not p.get("hidden"):
+        photo = f"{base}/api/posts/{p['id']}/photo" if p.get("has_photo") else p.get("photo_url")
+    return {"token": s["token"], "title": s["title"], "members": s.get("members") or [], "active": bool(s.get("active")),
+            "postId": s["post_id"], "photoUrl": photo}
+
+
+@app.post("/api/shares")
+def create_share(request: Request, req: ShareReq, uid: int = Depends(require_user)):
+    p = fstore.get_post(req.postId)
+    if not p or p.get("user_id") != uid:
+        raise HTTPException(404, "내가 올린 글만 링크로 보낼 수 있어요")
+    s = fstore.find_share(uid, req.postId)   # 같은 글이면 같은 링크를 다시 써요
+    if s:
+        if not s.get("active"):
+            fstore.set_share_active(s["token"], True)
+            s["active"] = True
+    else:
+        names = []
+        for n in req.members:
+            n = str(n).strip()[:12]
+            if n and n not in names:
+                names.append(n)
+        s = fstore.add_share(secrets.token_urlsafe(9), user_id=uid, post_id=req.postId, record_id=req.recordId,
+                             title=p["title"], members=names[:10])
+    return _share_out(s, _base(request))
+
+
+@app.get("/api/shares/{token}")
+def get_share(request: Request, token: str):
+    s = fstore.get_share(token)
+    if not s:
+        raise HTTPException(404, "없는 링크예요")
+    return _share_out(s, _base(request))
+
+
+@app.put("/api/shares/{token}")
+def set_share(token: str, req: ShareActiveReq, uid: int = Depends(require_user)):
+    s = fstore.get_share(token)
+    if not s or s.get("user_id") != uid:
+        raise HTTPException(404, "없는 링크예요")
+    fstore.set_share_active(token, req.active)
+    return {"ok": True, "active": req.active}
+
+
+@app.post("/api/shares/{token}/feedback")
+def share_feedback(token: str, req: ShareFeedbackReq):
+    s = fstore.get_share(token)
+    if not s:
+        raise HTTPException(404, "없는 링크예요")
+    if not s.get("active"):
+        raise HTTPException(410, "보낸 사람이 링크를 꺼서 의견을 남길 수 없어요")
+    members = s.get("members") or []
+    answers = {k: v for k, v in req.answers.items() if v in ("ate", "left") and (k in members or not members)}
+    comment = req.comment.strip()
+    if not answers and not comment:
+        raise HTTPException(400, "먹은 정도를 고르거나 남기고 싶은 말을 적어 주세요")
+    if not fstore.add_share_feedback(token, s["user_id"], s["title"], answers, comment, SHARE_MAX_RESPONSES):
+        raise HTTPException(429, "이 링크로 받을 수 있는 의견이 가득 찼어요")
     return {"ok": True}
 
 
@@ -402,18 +495,29 @@ def get_recipe_image(image_id: int):
 
 
 # ---------------------------------------------------------------- 나만의 레시피북 (내 식사 기록)
-def _record_out(r: dict, base: str) -> dict:
+def _record_out(r: dict, base: str, share: dict | None = None, responses: list[dict] | None = None) -> dict:
     created = r.get("created_at")
-    return {"id": r["id"], "title": r["title"], "comment": r.get("comment", ""), "autoTags": r.get("auto_tags") or [],
-            "userTags": r.get("user_tags") or [], "recipe": r.get("recipe"), "visibility": r.get("visibility", "private"),
-            "photoUrl": f"{base}/api/records/photo/{r['photo_key']}" if r.get("has_photo") else None,
-            "createdAt": created.isoformat() if created else None}
+    out = {"id": r["id"], "title": r["title"], "comment": r.get("comment", ""), "autoTags": r.get("auto_tags") or [],
+           "userTags": r.get("user_tags") or [], "recipe": r.get("recipe"), "visibility": r.get("visibility", "private"),
+           "photoUrl": f"{base}/api/records/photo/{r['photo_key']}" if r.get("has_photo") else None,
+           "createdAt": created.isoformat() if created else None}
+    if share:
+        out["share"] = {"token": share["token"], "active": bool(share.get("active")), "postId": share["post_id"]}
+        out["responses"] = [{"answers": x["answers"], "comment": x["comment"],
+                             "createdAt": x["created_at"].isoformat() if x["created_at"] else None} for x in responses or []]
+    return out
 
 
 @app.get("/api/records")
 def list_records(request: Request, uid: int = Depends(require_user)):
     base = _base(request)
-    return {"records": [_record_out(r, base) for r in fstore.list_records(uid)]}
+    shares = {s.get("record_id"): s for s in fstore.shares_of(uid) if s.get("record_id")}
+    responses = fstore.share_responses(uid) if shares else {}
+    out = []
+    for r in fstore.list_records(uid):
+        s = shares.get(r["id"])
+        out.append(_record_out(r, base, s, responses.get(s["token"]) if s else None))
+    return {"records": out}
 
 
 @app.post("/api/records")

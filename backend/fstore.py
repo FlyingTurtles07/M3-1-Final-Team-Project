@@ -172,6 +172,7 @@ def delete_user(uid: int) -> None:
         db().collection("user_docs").document(f"{uid}_{key}").delete()
     _delete_where("post_likes", "user_id", uid)
     _delete_where("feedback", "user_id", uid)
+    _delete_where("shares", "user_id", uid)
     for doc in db().collection("records").where(filter=FieldFilter("user_id", "==", uid)).stream():
         d = doc.to_dict()
         if d.get("photo_key"):
@@ -233,6 +234,8 @@ def get_post(pid: int) -> dict | None:
 
 
 def delete_post(pid: int) -> None:
+    for doc in db().collection("shares").where(filter=FieldFilter("post_id", "==", pid)).stream():
+        doc.reference.update({"active": False})   # 글을 지우면 그 글로 만든 의견 링크도 꺼요
     del_photo(f"post-{pid}")
     db().collection("posts").document(str(pid)).delete()
 
@@ -280,6 +283,66 @@ def add_feedback(**fields) -> None:
     fields["created_at"] = now()
     fields["answers"] = _j(fields.get("answers") or {})
     db().collection("feedback").add(fields)
+
+
+# ---------------------------------------------------------------- 가족 의견 링크 (카카오톡으로 보내는 링크)
+def add_share(token: str, **fields) -> dict:
+    fields.update(active=True, responses=0, created_at=now())
+    db().collection("shares").document(token).set(fields)
+    return dict(fields, token=token)
+
+
+def get_share(token: str) -> dict | None:
+    snap = db().collection("shares").document(token).get()
+    return dict(snap.to_dict(), token=token) if snap.exists else None
+
+
+def find_share(uid: int, post_id: int) -> dict | None:
+    for doc in db().collection("shares").where(filter=FieldFilter("post_id", "==", post_id)).stream():
+        d = doc.to_dict()
+        if d.get("user_id") == uid:
+            return dict(d, token=doc.id)
+    return None
+
+
+def set_share_active(token: str, active: bool) -> None:
+    db().collection("shares").document(token).update({"active": active})
+
+
+def add_share_feedback(token: str, owner_id: int, title: str, answers: dict, comment: str, limit: int) -> bool:
+    """받은 사람이 남긴 의견. 링크 하나에 의견이 너무 많이 쌓이지 않게 limit 개까지만 받아요."""
+    ref = db().collection("shares").document(token)
+
+    @firestore.transactional
+    def run(tx):
+        n = int(ref.get(transaction=tx).to_dict().get("responses", 0))
+        if n >= limit:
+            return False
+        tx.update(ref, {"responses": n + 1})
+        tx.set(db().collection("feedback").document(), {
+            "user_id": owner_id, "share_token": token, "source": "link", "recipe_id": "", "recipe_title": title,
+            "answers": _j(answers), "comment": comment, "created_at": now()})
+        return True
+    return run(db().transaction())
+
+
+def share_responses(uid: int) -> dict[str, list[dict]]:
+    """내 링크로 받은 의견을 링크별로 모아요"""
+    out: dict[str, list[dict]] = {}
+    q = db().collection("feedback").where(filter=FieldFilter("user_id", "==", uid))
+    for doc in q.stream():
+        d = doc.to_dict()
+        if d.get("source") != "link":
+            continue
+        out.setdefault(d["share_token"], []).append(
+            {"answers": _uj(d.get("answers")) or {}, "comment": d.get("comment") or "", "created_at": d.get("created_at")})
+    for rows in out.values():
+        rows.sort(key=lambda r: r["created_at"] or now())
+    return out
+
+
+def shares_of(uid: int) -> list[dict]:
+    return [dict(d.to_dict(), token=d.id) for d in db().collection("shares").where(filter=FieldFilter("user_id", "==", uid)).stream()]
 
 
 # ---------------------------------------------------------------- 나만의 레시피북
