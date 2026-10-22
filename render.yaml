@@ -34,8 +34,8 @@ services:
         sync: false
       - key: OPENAI_BASE_URL     # 코디세이: https://copa.codyssey.kr/v1 (OpenAI 그대로 쓰면 비워 두기)
         sync: false
-      - key: OPENAI_MODEL        # 코디세이에서 빠르고 안정적인 모델
-        value: gpt-5.4-mini
+      - key: OPENAI_MODEL        # 레시피 추천 모델 (토큰 사용량이 적은 모델)
+        value: gemini-3-flash
       - key: OPENAI_VISION       # 코디세이 키는 사진 입력을 지원하지 않아서 꺼 둬요
         value: "false"
       - key: IMAGE_MODEL         # AI 레시피 요리 사진 (코디세이 그림 API)
