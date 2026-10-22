@@ -68,6 +68,20 @@ def _guess_photo(title: str) -> str | None:
     return None
 
 
+def _item(x) -> list[str] | None:
+    """재료 한 줄을 [이름, 양, 무게]로 맞춰요. AI가 [이름, 무게]처럼 두 칸만 줘도 받아요."""
+    if isinstance(x, dict):
+        x = [x.get("name"), x.get("amount") or x.get("weight"), x.get("weight") or x.get("amount")]
+    if not isinstance(x, (list, tuple)) or not x or not str(x[0]).strip():
+        return None
+    name = str(x[0]).strip()
+    if len(x) >= 3:
+        return [name, str(x[1]), str(x[2])]
+    if len(x) == 2:
+        return [name, str(x[1]), str(x[1])]
+    return [name, "적당량", ""]
+
+
 def _clean_recipe(raw: dict, ingredients: list[str]) -> dict | None:
     """AI 응답을 화면이 쓰는 형식으로 다듬고, 형식이 틀리면 버려요"""
     try:
@@ -76,10 +90,11 @@ def _clean_recipe(raw: dict, ingredients: list[str]) -> dict | None:
         adds = [[str(x).strip() for x in a] for a in raw.get("adds", [])][: len(steps)]
         while len(adds) < len(steps):
             adds.append([])
-        ing = [[str(x[0]), str(x[1]), str(x[2])] for x in raw["ing"] if len(x) >= 3]
+        ing = [_item(x) for x in raw["ing"]]
+        ing = [x for x in ing if x]
         sauce_raw = raw.get("sauce") or {}
         sauce = {"label": str(sauce_raw.get("label") or "양념"),
-                 "items": [[str(x[0]), str(x[1]), str(x[2])] for x in sauce_raw.get("items", []) if len(x) >= 3]}
+                 "items": [x for x in (_item(y) for y in sauce_raw.get("items", [])) if x]}
         salt_at = int(raw.get("saltAt", len(steps) - 1))
         salt_at = max(0, min(salt_at, len(steps) - 1))
         minutes = int(raw.get("minutes") or 30)
@@ -87,7 +102,12 @@ def _clean_recipe(raw: dict, ingredients: list[str]) -> dict | None:
         return None
     if not title or len(steps) < 2 or not ing:
         return None
-    uses = [x[0] for x in ing if x[0] in ingredients] or [x[0] for x in ing if x[0] not in PROCESSED][:4]
+    # 재료 목록에 냉장고 재료가 하나도 없으면(주재료를 빠뜨린 답) 버려요
+    names = [x[0].replace(" ", "") for x in ing]
+    uses = [f for f in ingredients if any(f in n for n in names)]
+    if ingredients and not uses:
+        return None
+    uses = uses or [x[0] for x in ing if x[0] not in PROCESSED][:4]
     rid = "ai-" + hashlib.sha1(title.encode()).hexdigest()[:10]
     r = {"id": rid, "title": title, "photo": _guess_photo(title), "minutes": minutes, "servings": 4, "uses": uses,
          "ing": ing, "sauce": sauce if sauce["items"] else None, "steps": steps, "adds": adds, "saltAt": salt_at,
@@ -101,8 +121,9 @@ PROMPT = """너는 한국 가정식 레시피를 만드는 도우미야.
 이미 보여준 메뉴(겹치지 않게): {exclude}
 
 위 재료를 최대한 활용해서 가족이 함께 먹을 수 있는 한식 레시피 {count}개를 만들어.
-- 모두 4인분(성인 1인분×4) 기준, 재료는 손질 후 무게(g)로 적어. 계량: 1컵 200mL, 1큰술 15mL, 1작은술 5mL.
+- 모두 4인분(성인 1인분×4) 기준. ing·sauce의 각 줄은 꼭 [이름, 양, 무게] 세 칸으로 (예: ["무","약 1/5개","300g"]). 계량: 1컵 200mL, 1큰술 15mL, 1작은술 5mL.
 - 냉장고에 없는 재료는 최소한으로(소금·간장 같은 기본 양념은 써도 돼).
+- ing에는 주재료를 빠짐없이 모두 적어 (예: 소고기 무조림이면 소고기와 무를 꼭 ing에).
 - 만드는법은 3~6단계, 쉬운 말투(~해요)로.
 - adds: 만드는법 각 단계에서 '새로 들어가는 재료 이름' 목록 (steps와 길이가 같아야 해). 이름은 ing/sauce에 쓴 이름과 같게.
 - saltAt: 간(소금·간장·된장 등)을 하는 단계 번호(0부터).
@@ -132,25 +153,27 @@ def parse_json(text: str) -> dict:
 async def ai_recommend(ingredients: list[str], exclude_titles: list[str], count: int = 3) -> list[dict]:
     if not os.getenv("OPENAI_API_KEY"):
         return []
-    try:
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(timeout=float(os.getenv("OPENAI_TIMEOUT", "40")), max_retries=1)
-        # temperature·JSON 모드는 쓰지 않아요 (코디세이 등 일부 OpenAI 호환 서버가 지원하지 않아요)
-        res = await client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "user", "content": PROMPT.format(
-                ingredients=", ".join(ingredients) or "(없음)", exclude=", ".join(exclude_titles) or "(없음)", count=count)}],
-        )
-        data = parse_json(res.choices[0].message.content or "")
-        out = []
-        for raw in data.get("recipes", []):
-            r = _clean_recipe(raw, ingredients)
-            if r and r["title"] not in exclude_titles and all(r["title"] != x["title"] for x in out):
-                out.append(r)
-        return out[:count]
-    except Exception:  # AI가 실패해도 기본 레시피로 이어서 보여줘요
-        log.exception("AI 레시피 추천 실패")
-        return []
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(timeout=float(os.getenv("OPENAI_TIMEOUT", "40")), max_retries=0)
+    prompt = PROMPT.format(ingredients=", ".join(ingredients) or "(없음)", exclude=", ".join(exclude_titles) or "(없음)", count=count)
+    # 첫 모델이 실패하거나 쓸 만한 레시피를 못 주면 다음 모델로 한 번 더 시도해요
+    models = [OPENAI_MODEL] + [m.strip() for m in os.getenv("OPENAI_FALLBACK_MODELS", "gemini-3.1-flash-lite").split(",") if m.strip() and m.strip() != OPENAI_MODEL]
+    for model in models:
+        try:
+            # temperature·JSON 모드는 쓰지 않아요 (코디세이 등 일부 OpenAI 호환 서버가 지원하지 않아요)
+            res = await client.chat.completions.create(model=model, messages=[{"role": "user", "content": prompt}])
+            data = parse_json(res.choices[0].message.content or "")
+            out = []
+            for raw in data.get("recipes", []):
+                r = _clean_recipe(raw, ingredients)
+                if r and r["title"] not in exclude_titles and all(r["title"] != x["title"] for x in out):
+                    out.append(r)
+            if out:
+                return out[:count]
+            log.warning("AI(%s)가 쓸 수 있는 레시피를 주지 않았어요", model)
+        except Exception as e:  # AI가 실패해도 다음 모델 → 기본 레시피로 이어서 보여줘요
+            log.warning("AI 레시피 추천 실패(%s): %s", model, str(e)[:200])
+    return []
 
 
 def stock_only(names: list[str]) -> list[str]:
