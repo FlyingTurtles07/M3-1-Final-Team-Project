@@ -513,7 +513,11 @@ def my_shares(limit: int = 5, uid: int = Depends(require_user)):
         if rows:
             out.append(dict(_share_summary(s, rows), title=s["title"]))
     out.sort(key=lambda d: d["latestAt"] or "", reverse=True)
-    return {"shares": out[:max(1, min(limit, 20))]}
+    # 같은 요리를 여러 번 공유했으면 카드 하나로: 가장 최근에 의견이 온 링크만 보여줘요 (예전 링크는 레시피북에서)
+    merged: dict[str, dict] = {}
+    for d in out:
+        merged.setdefault(d["title"], d)
+    return {"shares": list(merged.values())[:max(1, min(limit, 20))]}
 
 
 def taste_notes(uid: int) -> str:
