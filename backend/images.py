@@ -5,6 +5,7 @@
   응답의 url은 웹 로그인 전용이라, response_format=b64_json으로 그림 자체를 받아요.
 - 받은 그림은 640px JPEG로 줄여서 저장해요.
 - IMAGE_ENABLED=false 이거나 키가 없으면 그리지 않아요 (화면은 예시 사진을 그대로 써요).
+- 레시피 AI와 다른 곳(예: 레시피는 구글, 그림은 코디세이)을 쓰려면 IMAGE_API_KEY · IMAGE_API_URL 을 따로 넣어요.
 """
 import asyncio
 import base64
@@ -24,8 +25,12 @@ _recent: list[float] = []
 _locks: dict[str, asyncio.Lock] = {}
 
 
+def _key() -> str:
+    return os.getenv("IMAGE_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+
+
 def enabled() -> bool:
-    return bool(os.getenv("OPENAI_API_KEY")) and os.getenv("IMAGE_ENABLED", "true").lower() != "false"
+    return bool(_key()) and os.getenv("IMAGE_ENABLED", "true").lower() != "false"
 
 
 def _api_url() -> str:
@@ -98,7 +103,7 @@ async def generate(title: str, ingredients: list[str]) -> bytes | None:
     body = {"model": IMAGE_MODEL, "prompt": _prompt(title, ingredients), "size": "1024x1024", "n": 1, "response_format": "b64_json"}
     try:
         async with httpx.AsyncClient(timeout=float(os.getenv("IMAGE_TIMEOUT", "120"))) as c:
-            r = await c.post(_api_url(), json=body, headers={"Authorization": "Bearer " + os.getenv("OPENAI_API_KEY", "")})
+            r = await c.post(_api_url(), json=body, headers={"Authorization": "Bearer " + _key()})
         if r.status_code != 200:
             log.warning("요리 사진 만들기 실패 %s: %s", r.status_code, r.text[:200])
             return None
