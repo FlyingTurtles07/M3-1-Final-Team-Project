@@ -80,6 +80,13 @@
   .fam .row { margin: 2px 0 0; font-size: 12.5px; line-height: 1.45; font-weight: 700; color: #4a3a33; word-break: keep-all; }
   .fam .row b { display: inline-block; min-width: 54px; color: #8a7a70; font-weight: 800; }
   .fam .row.warn { color: var(--danger); }
+  .fam li.editing { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+  .fam .acts { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .fam .edit-btn { height: 30px; padding: 0 10px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink-deep); font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
+  .fam .edit-btn:focus-visible { outline: 3px solid var(--ink); }
+  .edit-banner { margin: 16px 0 0; padding: 10px 14px; border-radius: 16px; background: #fff6e8; border: 2px solid var(--accent); font-size: 13.5px; font-weight: 800; color: var(--ink-deep); text-align: center; }
+  .edit-banner[hidden], .go.cancel[hidden] { display: none; }
+  .go.cancel { margin-top: 10px; background: #fff; }
   .fam .del { flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: #8a7a70; font-size: 18px; cursor: pointer; }
   .fam .del:focus-visible { outline: 3px solid var(--ink); }
   .step { margin: 16px 0 0; font-size: 13.5px; font-weight: 800; color: var(--step); }
@@ -298,7 +305,9 @@
       <ul class="fam" id="famList" aria-label="등록한 가족"></ul>
     </section>
 
-    <section class="field">
+    <p class="edit-banner" id="editBanner" hidden></p>
+
+    <section class="field" id="fSlot">
       <div class="slot-wrap">
         <button class="slot" type="button" id="slot" aria-haspopup="dialog"></button>
         <span class="slot-cap" id="slotCap">프로필 캐릭터 고르기 <span class="opt">(선택)</span></span>
@@ -348,6 +357,7 @@
     </section>
 
     <button class="go" type="button" id="save">이 가족 저장하기</button>
+    <button class="go cancel" type="button" id="cancelEdit" hidden>수정 취소</button>
     <button class="go next" type="button" id="next" hidden>다음: 재료 등록하기 →</button>
   </div>
 
@@ -623,6 +633,45 @@
   }
 
   // 등록한 가족: 누가 무엇을 골랐는지 보여줘요
+  /* ---------- 수정 ---------- */
+  var editIndex = null;     // 수정 중인 가족 번호 (없으면 null)
+  function startEdit(i) {
+    var m = members[i];
+    if (!m) return;
+    editIndex = i;
+    var als = (m.allergies || []).slice();
+    state = {
+      character: m.character || null,
+      name: m.name || '',
+      age: m.age || null,
+      allergy: als,
+      custom: als.filter(function (a) { return a !== NONE && ALLERGY.indexOf(a) === -1; }),   // 직접 추가했던 알레르기
+      cond: (m.conditions || []).slice(),
+      note: m.note || ''
+    };
+    $('name').value = state.name;
+    $('consent').checked = true;               // 이미 동의한 가족이라 체크해 둬요 (풀면 저장할 수 없어요)
+    $('proxy').checked = !!m.proxyConsent;
+    ['fName', 'fAllergy', 'fConsent'].forEach(function (id) { var msg = { fName: 'msgName', fAllergy: 'msgAllergy', fConsent: 'msgConsent' }[id]; setError(id, msg, false); });
+    renderAll();
+    $('editBanner').hidden = false;
+    $('editBanner').textContent = '\u2018' + state.name + '\u2019 님 정보를 수정하고 있어요';
+    $('save').textContent = '수정 내용 저장';
+    $('cancelEdit').hidden = false;
+    $('editBanner').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function stopEdit() {
+    editIndex = null;
+    resetState();
+    $('name').value = '';
+    $('consent').checked = false; $('proxy').checked = false;
+    $('editBanner').hidden = true;
+    $('save').textContent = '이 가족 저장하기';
+    $('cancelEdit').hidden = true;
+    renderAll();
+  }
+  $('cancelEdit').addEventListener('click', function () { stopEdit(); show('수정을 취소했어요'); });
+
   function renderMembers() {
     var list = $('famList'); list.innerHTML = '';
     $('famEmpty').hidden = members.length > 0;
@@ -646,18 +695,27 @@
       row('알레르기', als.length ? '⚠ ' + als.join(', ') : '없음', als.length > 0);
       row('식사 조건', (m.conditions || []).length ? m.conditions.join(', ') : '선택 안 함');
       if (m.note) row('참고사항', m.note);
+      if (editIndex === i) li.classList.add('editing');
+      var edit = document.createElement('button');
+      edit.type = 'button'; edit.className = 'edit-btn'; edit.textContent = editIndex === i ? '수정 중' : '수정';
+      edit.setAttribute('aria-label', m.name + ' 정보 수정');
+      edit.addEventListener('click', function () { startEdit(i); });
       var del = document.createElement('button');
       del.type = 'button'; del.className = 'del'; del.textContent = '✕';
       del.setAttribute('aria-label', m.name + ' 삭제');
       del.addEventListener('click', function () {
         if (!confirm('‘' + m.name + '’ 님을 삭제할까요? 입력한 건강 정보도 함께 삭제돼요.')) return;
+        if (editIndex === i) stopEdit();
+        else if (editIndex !== null && i < editIndex) editIndex--;
         members.splice(i, 1);
         try { localStorage.setItem('familyMembers', JSON.stringify(members)); } catch (e) {}
         if (window.HansangAPI) HansangAPI.saveDoc('family', members);   // 서버에도 저장 (로그인했을 때)
         renderMembers();
         show('‘' + m.name + '’ 님과 건강 정보를 삭제했어요');
       });
-      li.appendChild(av); li.appendChild(body); li.appendChild(del);
+      var acts = document.createElement('div'); acts.className = 'acts';
+      acts.appendChild(edit); acts.appendChild(del);
+      li.appendChild(av); li.appendChild(body); li.appendChild(acts);
       list.appendChild(li);
     });
   }
@@ -724,7 +782,9 @@
       consentAt: new Date().toISOString(),   // 건강 정보 동의 시각 (민감정보는 동의 기록을 남겨요)
       proxyConsent: $('proxy').checked       // 대리 입력 시 그 가족의 동의 확인
     };
-    members.push(member);
+    var editing = editIndex !== null && members[editIndex];
+    if (editing) members[editIndex] = member;   // 수정: 그 자리에 바꿔 넣어요
+    else members.push(member);
     // 다른 화면(오늘의 한상, 식사 후 의견)에서 가족 목록을 쓸 수 있게 저장해요
     try { localStorage.setItem('familyMembers', JSON.stringify(members)); } catch (e) { /* 저장 불가 환경이면 건너뜀 */ }
     if (window.HansangAPI) HansangAPI.saveDoc('family', members);   // 서버에도 저장 (로그인했을 때)
@@ -737,11 +797,8 @@
     });
     */
 
-    show('\u2018' + name + '\u2019 프로필을 저장했어요 (' + members.length + '명)');
-    resetState();
-    $('name').value = '';
-    $('consent').checked = false; $('proxy').checked = false;
-    renderAll();
+    show(editing ? '\u2018' + name + '\u2019 님 정보를 수정했어요' : '\u2018' + name + '\u2019 프로필을 저장했어요 (' + members.length + '명)');
+    stopEdit();
     $('scroll').scrollTo({ top: 0, behavior: 'smooth' });
   });
 
