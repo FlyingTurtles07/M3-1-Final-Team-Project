@@ -9,11 +9,17 @@
 수치 출처
 - MFDS_API_KEY(공공데이터포털 식품영양성분DB)가 있으면 그 값을, 없으면 아래 기본 수치(임시값)를 써요.
 - [검토] 기준값(LIMITS)과 기본 수치는 전문가 확정 전 임시값이에요.
-- [검토] 식약처 API 요청 주소와 응답 필드 이름은 활용신청 후 받는 참고문서로 확인해서 환경변수로 맞춰 주세요.
+- 식약처 API는 FoodNtrCpntDbInfo03 (2026-10 확인: AMT_NUM13=나트륨 mg, AMT_NUM7=당류 g, 100g당).
+  원재료 '생것' 항목만 쓰고, 간장·두부처럼 생것이 없는 재료는 기본 수치를 써요.
 """
+import asyncio
+import json
 import logging
 import os
 import re
+import sys
+import time
+from pathlib import Path
 
 import httpx
 
@@ -38,16 +44,45 @@ BASE_NUTRITION = {
 # 이름이 조금 달라도 같은 재료로 찾아요 (예: "다진 마늘" → 마늘, "소고기 국거리" → 소고기)
 PREFIXES = ("다진", "간", "굵은", "채썬", "송송썬", "얇게썬", "깍둑썬", "데친", "삶은", "볶은")
 ALIASES = {"쇠고기": "소고기", "계란": "달걀", "파": "대파", "쪽파": "대파", "물": "정수물", "참깨": "통깨"}
+# 우리 재료 이름 → 식약처 원재료 항목 이름 (생것 항목이 없거나 이름이 다른 재료)
+# [검토] 종류가 여러 개인 양념은 나트륨이 더 높은 쪽(저염식 판정에 더 안전한 쪽)으로 골랐어요. 팀 확정 필요.
+MFDS_NAMES = {
+    "소금": "소금, 정제염",                 # 36,025mg (천일염 33,811 · 구운소금 37,556)
+    "간장": "간장, 개량, 산분해",            # 5,476mg
+    "진간장": "간장, 개량, 산분해",          # 5,476mg (양조 4,783)
+    "양조간장": "간장, 개량, 양조",          # 4,783mg
+    "국간장": "간장, 재래",                 # 7,999mg
+    "된장": "된장, 재래",                   # 5,152mg (개량 4,339)
+    "닭가슴살": "닭고기, 가슴, 생것",
+    "닭다리살": "닭고기, 다리(넓적다리), 생것",
+    "소고기 국거리": "소고기, 한우, 양지, 생것",
+    "통깨": "참깨, 흰색, 볶은것",
+    "깨": "참깨, 흰색, 볶은것",
+    "쌀": "멥쌀, 백미, 생것",
+    "현미": "멥쌀, 현미, 생것",
+    "연어": "연어, 생것",
+}
+# 식약처에 당류 값이 비어 있지만 0으로 봐도 되는 항목 (고기·생선) [검토]
+MFDS_SUGAR_ZERO = {"연어, 생것"}
 LIMITS = {
     "sodium_mg_per_serving": float(os.getenv("LIMIT_SODIUM_MG", "800")),   # 저염식 1인분 나트륨 한도 (임시)
     "sugar_g_per_serving": float(os.getenv("LIMIT_SUGAR_G", "10")),        # 당뇨식 1인분 당류 한도 (임시)
 }
 MFDS_API_KEY = os.getenv("MFDS_API_KEY", "")
-MFDS_API_URL = os.getenv("MFDS_API_URL", "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02")
+MFDS_API_URL = os.getenv("MFDS_API_URL", "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo03/getFoodNtrCpntDbInq03")
 MFDS_NAME_FIELD = os.getenv("MFDS_NAME_FIELD", "FOOD_NM_KR")
 MFDS_SODIUM_FIELD = os.getenv("MFDS_SODIUM_FIELD", "AMT_NUM13")
 MFDS_SUGAR_FIELD = os.getenv("MFDS_SUGAR_FIELD", "AMT_NUM7")
-_cache: dict[str, tuple[float, float] | None] = {}
+MFDS_RECHECK_SEC = 600                     # 연결 안 됐을 때 상태를 다시 확인하는 간격
+MFDS_FILE = Path(__file__).with_name("data") / "mfds_nutrition.json"   # 미리 받아 둔 수치 (python safety.py 로 갱신)
+_cache: dict[str, tuple[float, float] | None] = {
+    k: (tuple(v) if v else None) for k, v in
+    (json.loads(MFDS_FILE.read_text(encoding="utf-8")) if MFDS_FILE.exists() else {}).items()
+    if v or k not in MFDS_NAMES}           # 매핑을 새로 넣은 재료는 '없음'으로 저장돼 있어도 다시 찾아요
+_limit = asyncio.Semaphore(4)              # 동시에 너무 많이 부르면 시간 초과가 나요
+# 식약처 API 실제 연결 상태 — /api/health 에서 보여줘요
+# state: unset(키 없음) · unchecked(아직 안 불러봄) · ok · error
+_status: dict = {"state": "unchecked" if MFDS_API_KEY else "unset", "error": None, "checked": 0.0}
 
 
 def grams(text: str) -> float | None:
@@ -55,23 +90,114 @@ def grams(text: str) -> float | None:
     return float(m.group(1).replace(",", "")) if m else None
 
 
+def _set_status(error: str | None) -> None:
+    """상태가 바뀔 때만 로그를 남겨요 (같은 오류를 매번 찍지 않게)"""
+    state = "error" if error else "ok"
+    if (state, error) != (_status["state"], _status["error"]):
+        if error:
+            log.warning("식약처 API 연결 안 됨 — 기본 수치(임시값)로 대신해요: %s", error)
+        else:
+            log.info("식약처 API 연결됨")
+    _status.update(state=state, error=error, checked=time.time())
+
+
+async def _request(name: str, rows: int = 100) -> list[dict]:
+    """식약처 API를 불러 items를 돌려줘요 (FOOD_NM_KR은 부분 일치). 키 오류·서비스 오류면 MfdsError"""
+    async with httpx.AsyncClient(timeout=20) as c:     # 응답에 보통 5초 안팎 걸려요
+        r = await c.get(MFDS_API_URL, params={"serviceKey": MFDS_API_KEY, "FOOD_NM_KR": name, "type": "json", "numOfRows": rows, "pageNo": 1})
+    try:
+        data = r.json() or {}
+    except ValueError:
+        raise MfdsError(f"HTTP {r.status_code}, JSON 아닌 응답: {r.text[:120]}")
+    # 키·서비스 오류는 {"OpenAPI_ServiceResponse": {"cmmMsgHeader": {...}}} 형태로 와요
+    err = (data.get("OpenAPI_ServiceResponse") or {}).get("cmmMsgHeader")
+    if err:
+        raise MfdsError(f"{err.get('errMsg')} ({err.get('returnAuthMsg')})")
+    head = data.get("header") or {}
+    if head.get("resultCode") not in (None, "00"):
+        raise MfdsError(f"{head.get('resultCode')} {head.get('resultMsg')}")
+    if r.status_code != 200:
+        raise MfdsError(f"HTTP {r.status_code}")
+    return ((data.get("body") or {}).get("items")) or []
+
+
+class MfdsError(Exception):
+    pass
+
+
+def _num(v) -> float | None:
+    """'7,999.000' 같은 값을 숫자로. 빈 값은 None (0으로 치지 않아요)"""
+    try:
+        return float(str(v).replace(",", "")) if str(v or "").strip() else None
+    except ValueError:
+        return None
+
+
+def _pick(name: str, items: list[dict]) -> tuple[float, float] | None:
+    """원재료성(DB_GRP_CM R…) 항목 중 재료명이 맨 앞에 오고 '생것'인 것, 그중 가장 단순한 이름을 골라요.
+    예: 양파 → '양파, 생것' · 대파 → '파, 대파, 생것'(상위 분류 바로 뒤도 인정).
+    '수제비면, 감자, 생것'처럼 다른 식품은 빼요. 생것이 없으면(간장·두부 등) 기본 수치로 넘겨요."""
+    best = None
+    for it in items:
+        if not str(it.get("DB_GRP_CM", "")).startswith("R"):
+            continue
+        parts = [p.strip() for p in str(it.get(MFDS_NAME_FIELD, "")).split(",")]
+        head = parts[0] == name or (len(parts) > 1 and parts[1] == name and name.endswith(parts[0]))
+        if not head or "생것" not in parts:
+            continue
+        na, sugar = _num(it.get(MFDS_SODIUM_FIELD)), _num(it.get(MFDS_SUGAR_FIELD))
+        if na is None or sugar is None:
+            continue
+        if best is None or len(parts) < best[0]:
+            best = (len(parts), (na, sugar))
+    return best[1] if best else None
+
+
+def _pick_exact(target: str, items: list[dict]) -> tuple[float, float] | None:
+    """MFDS_NAMES로 정해 둔 항목을 이름 그대로 찾아요"""
+    for it in items:
+        if str(it.get(MFDS_NAME_FIELD, "")).strip() == target and str(it.get("DB_GRP_CM", "")).startswith("R"):
+            na, sugar = _num(it.get(MFDS_SODIUM_FIELD)), _num(it.get(MFDS_SUGAR_FIELD))
+            if sugar is None and target in MFDS_SUGAR_ZERO:
+                sugar = 0.0
+            return (na, sugar) if na is not None and sugar is not None else None
+    return None
+
+
 async def _mfds(name: str) -> tuple[float, float] | None:
-    """식약처 식품영양성분DB에서 이름이 정확히 같은 항목만 써요 (호출 결과는 캐시)"""
+    """식약처 식품영양성분DB 원재료 항목에서 100g당 (나트륨, 당류)를 찾아요 (정상 응답만 캐시)"""
     if name in _cache:
         return _cache[name]
-    val = None
+    if _status["state"] == "error" and time.time() - _status["checked"] < MFDS_RECHECK_SEC:
+        return None                        # 연결 안 된 동안은 재료마다 부르지 않아요
+    target = MFDS_NAMES.get(name)
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            r = await c.get(MFDS_API_URL, params={"serviceKey": MFDS_API_KEY, "FOOD_NM_KR": name, "type": "json", "numOfRows": 10, "pageNo": 1})
-            items = (((r.json() or {}).get("body") or {}).get("items")) or []
-            for it in items:
-                if str(it.get(MFDS_NAME_FIELD, "")).strip() == name:
-                    val = (float(it.get(MFDS_SODIUM_FIELD) or 0), float(it.get(MFDS_SUGAR_FIELD) or 0))
-                    break
-    except Exception:
-        log.warning("식약처 API 조회 실패: %s", name)
+        async with _limit:
+            # 원재료 이름은 '양파, 생것' 형식이라 쉼표까지 붙여 찾아요 (FOOD_NM_KR은 부분 일치)
+            items = await _request(target or name + ",", rows=20 if target else 100)
+    except MfdsError as e:
+        _set_status(str(e))
+        return None                        # 캐시 안 함 — 키가 승인되면 재시작 없이 바로 쓰여요
+    except httpx.HTTPError as e:           # 시간 초과 등 일시 오류는 이 재료만 기본 수치로 (상태는 그대로)
+        log.warning("식약처 API 조회 실패(%s): %s", type(e).__name__, name)
+        return None
+    _set_status(None)
+    val = _pick_exact(target, items) if target else _pick(name, items)
+    if target and val is None:
+        log.warning("식약처에서 정해 둔 항목을 찾지 못했어요: %s → %s", name, target)
     _cache[name] = val
     return val
+
+
+async def mfds_status() -> dict:
+    """연결 상태. 확인한 적 없거나 오류 뒤 일정 시간이 지났으면 한 번 불러서 확인해요"""
+    if _status["state"] == "unchecked" or (_status["state"] == "error" and time.time() - _status["checked"] > MFDS_RECHECK_SEC):
+        try:
+            await _request("양파,", rows=1)
+            _set_status(None)
+        except (MfdsError, httpx.HTTPError) as e:
+            _set_status(str(e) or type(e).__name__)
+    return {"state": _status["state"], "error": _status["error"]}
 
 
 def _candidates(name: str) -> list[str]:
@@ -88,11 +214,14 @@ def _candidates(name: str) -> list[str]:
 
 
 async def nutrition(name: str) -> tuple[float, float] | None:
-    for cand in _candidates(name):
-        if MFDS_API_KEY:
+    """식약처 수치를 먼저 모든 이름 후보로 찾고(간마늘 → 마늘), 없으면 기본 수치(임시값)"""
+    cands = _candidates(name)
+    if MFDS_API_KEY:
+        for cand in cands:
             v = await _mfds(cand)
             if v is not None:
                 return v
+    for cand in cands:
         if cand in BASE_NUTRITION:
             return BASE_NUTRITION[cand]
     return None
@@ -134,9 +263,9 @@ async def check_recipe(recipe: dict, members: list[dict]) -> dict:
         items = (recipe.get("ing") or []) + ((recipe.get("sauce") or {}).get("items") or [])
         sodium = sugar = 0.0
         missing = []
-        for name, _amount, weight in items:
+        found = await asyncio.gather(*(nutrition(name) for name, _a, _w in items))   # 재료를 동시에 조회해요
+        for (name, _amount, weight), n in zip(items, found):
             g = grams(weight)
-            n = await nutrition(name)
             if g is None or n is None:
                 missing.append(name)
                 continue
@@ -151,3 +280,41 @@ async def check_recipe(recipe: dict, members: list[dict]) -> dict:
         if "당뇨식" in conds and sugar / servings > LIMITS["sugar_g_per_serving"]:
             hold(f"1인분 당류 {sugar / servings:.1f}g")
     return {"result": result, "allergyHits": hits, "reasons": reasons}
+
+
+async def _prefetch() -> None:
+    """기본 레시피·기본 수치에 나오는 재료를 식약처 API에서 미리 받아 data/mfds_nutrition.json 에 저장해요.
+    식약처 서버가 느려서(1건 5초 안팎) 실시간 조회 대신 이 파일을 먼저 써요. 시간 초과는 3번까지 다시 해요."""
+    from recipes import POOL
+    names = set(BASE_NUTRITION)
+    for r in POOL:
+        for name, _a, _w in (r.get("ing") or []) + ((r.get("sauce") or {}).get("items") or []):
+            names.update(_candidates(name))
+    for _ in range(3):                     # 식약처 서버가 느려서 첫 확인이 시간 초과될 때가 있어요
+        _status["state"] = "unchecked"
+        if (await mfds_status())["state"] == "ok":
+            break
+    else:
+        sys.exit(f"식약처 API 연결 안 됨: {_status['error']}")
+    todo = sorted(n for n in names if n not in _cache)
+    for attempt in range(3):
+        await asyncio.gather(*(_mfds(n) for n in todo))
+        todo = [n for n in todo if n not in _cache]
+        if not todo:
+            break
+    data = {k: (list(v) if v else None) for k, v in sorted(_cache.items())}
+    MFDS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    found = sum(v is not None for v in data.values())
+    print(f"저장: {MFDS_FILE.name} — {len(data)}개 중 식약처 수치 {found}개, 생것 항목 없음(기본 수치 사용) {len(data) - found}개")
+    if todo:
+        print("조회 실패(다음에 다시 실행하세요):", ", ".join(todo))
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+    MFDS_API_KEY = os.getenv("MFDS_API_KEY", "")
+    _status["state"] = "unchecked" if MFDS_API_KEY else "unset"
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    asyncio.run(_prefetch())

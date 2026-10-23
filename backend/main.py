@@ -35,6 +35,7 @@ import vision  # noqa: E402
 from auth import check_password, hash_password, make_token, optional_user, require_user  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)   # 요청 주소에 API 키(serviceKey)가 그대로 찍히지 않게
 log = logging.getLogger("hansang")
 
 app = FastAPI(title="온가족 한상 API", version="2.0")
@@ -91,10 +92,11 @@ def _photo_response(found, cache: str) -> Response:
 
 # ---------------------------------------------------------------- 상태
 @app.get("/api/health")
-def health():
-    ok = fstore.ping()
+async def health():
+    ok = await run_in_threadpool(fstore.ping)
+    mfds = await safety.mfds_status()
     return {"ok": ok, "db": ok, "store": "firestore", "ai": bool(os.getenv("OPENAI_API_KEY")), "images": images.enabled(),
-            "vision": vision.enabled(), "mfds": bool(safety.MFDS_API_KEY)}
+            "vision": vision.enabled(), "mfds": mfds["state"] == "ok", "mfds_status": mfds}
 
 
 # ---------------------------------------------------------------- 1) 회원

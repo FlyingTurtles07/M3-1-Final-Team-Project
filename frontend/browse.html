@@ -83,18 +83,6 @@
   .clear { width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 20px; cursor: pointer; }
   .clear[hidden] { display: none; }
 
-  .help { margin: 10px 2px 0; font-size: 12px; line-height: 1.55; font-weight: 500; color: #3b2a24; }
-  .help b { font-weight: 800; }
-
-  /* 필터 칩 */
-  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .chip {
-    height: 40px; padding: 0 16px; border: 1.5px solid #d9cfc2; border-radius: 999px;
-    background: #fff; color: var(--ink-deep); font-size: 14px; font-weight: 700; cursor: pointer;
-    transition: background .12s, border-color .12s, transform .12s;
-  }
-  .chip:active { transform: scale(.97); }
-  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--ink); font-weight: 800; }
 
   .info { margin: 14px 2px 8px; font-size: 12.5px; font-weight: 700; color: var(--muted); min-height: 18px; }
 
@@ -134,7 +122,7 @@
   .report.del { color: var(--danger, #c0392b); font-weight: 800; }
   .report { height: 34px; padding: 0 4px 0 10px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 12.5px; font-weight: 700; }
 
-  .like:focus-visible, .report:focus-visible, .chip:focus-visible, .more:focus-visible, .tab:focus-visible,
+  .like:focus-visible, .report:focus-visible, .more:focus-visible, .tab:focus-visible,
   .clear:focus-visible, .btn:focus-visible, .reason:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
   /* 상태 */
@@ -227,12 +215,9 @@
     <form class="search" id="searchForm" role="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
       <input id="q" type="search" enterkeyhint="search" autocomplete="off" maxlength="30"
-             placeholder="예: 당뇨식, #가족생일" aria-label="한상 검색">
+             placeholder="메뉴나 재료로 찾아보세요" aria-label="한상 검색">
       <button class="clear" type="button" id="clear" aria-label="검색어 지우기" hidden>&times;</button>
     </form>
-    <p class="help">'당뇨식'은 <b>당 관리 참고</b> 태그로 찾아드려요. <b>#가족생일</b>처럼 #을 붙이면 사용자 태그와 코멘트에서 찾아요.</p>
-
-    <div class="filters" id="filters" role="group" aria-label="태그 필터"></div>
     <div class="info" id="info" aria-live="polite"></div>
 
     <div id="list"></div>
@@ -280,10 +265,8 @@
   /* =====================================================
    * 1) 설정 / 검색 규칙
    * ===================================================== */
-  var INITIAL_QUERY = '당뇨식';       // 처음 열 때 검색창에 넣어 둘 말 (비우려면 '' 로)
+  var INITIAL_QUERY = '';       // 처음 열 때 검색창에 넣어 둘 말 (비우려면 '' 로)
   var PAGE_SIZE = 4;
-
-  var BASE_FILTERS = ['당 관리 참고', '견과류 제외', '우유 제외', '#가족생일'];
 
   // 사람들이 쓰는 말 → 앱이 자동으로 붙이는 태그
   var SYNONYM = {
@@ -425,13 +408,6 @@
     load(true);
   }
 
-  function toggleFilter(t) {
-    var i = state.filters.indexOf(t);
-    if (i === -1) state.filters.push(t); else state.filters.splice(i, 1);
-    if (state.derived === t) state.derived = null;          // 직접 만진 필터는 검색어와 분리
-    load(true);
-  }
-
   var debounce;
   $('q').addEventListener('input', function (e) {
     $('clear').hidden = !e.target.value;
@@ -462,23 +438,6 @@
     } finally {
       if (id === state.reqId) { state.loading = false; render(); }
     }
-  }
-
-  function filterChips() {
-    var all = BASE_FILTERS.slice();
-    state.filters.forEach(function (f) { if (all.indexOf(f) === -1) all.push(f); });
-    return all;
-  }
-
-  function renderFilters() {
-    var box = $('filters'); box.innerHTML = '';
-    filterChips().forEach(function (t) {
-      var b = el('button', 'chip', t);
-      b.type = 'button';
-      b.setAttribute('aria-pressed', state.filters.indexOf(t) !== -1 ? 'true' : 'false');
-      b.addEventListener('click', function () { toggleFilter(t); });
-      box.appendChild(b);
-    });
   }
 
   var HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.500-4.600-7.500-10.200A4.300 4.300 0 0 1 12 7.600a4.300 4.300 0 0 1 7.500 2.700C19.500 15.900 12 20.500 12 20.500z"/></svg>';
@@ -613,9 +572,9 @@
     $('info').textContent = '한상 ' + state.total + '개';
     if (!state.posts.length) {
       var s = el('div', 'state');
-      s.appendChild(el('p', null, '조건에 맞는 한상이 아직 없어요. 필터를 줄이거나 다른 말로 찾아보세요.'));
+      s.appendChild(el('p', null, '조건에 맞는 한상이 아직 없어요. 다른 말로 찾아보세요.'));
       if (state.filters.length || state.text) {
-        var c = el('button', 'btn', '필터 모두 지우기'); c.type = 'button';
+        var c = el('button', 'btn', '검색 지우기'); c.type = 'button';
         c.addEventListener('click', function () {
           state.filters = []; state.derived = null; state.text = ''; $('q').value = ''; $('clear').hidden = true; load(true);
         });
@@ -630,7 +589,7 @@
   }
 
   function render(keepFocusId) {
-    renderFilters(); renderList();
+    renderList();
     if (keepFocusId) {
       var b = document.querySelector('[data-like="' + keepFocusId + '"]');
       if (b) b.focus();

@@ -41,6 +41,7 @@ uvicorn main:app --reload       # http://localhost:8000/docs
 
 ## [검토] 확정이 필요한 것
 - 당뇨식·저염식 기준값(`safety.py`의 `LIMITS`)과 기본 영양 수치는 전문가 확정 전 임시값이에요.
-- 식약처 API 주소·응답 필드 이름은 활용신청 후 참고문서로 확인해서 `MFDS_*` 환경변수로 맞춰 주세요.
+- 식약처 API는 `FoodNtrCpntDbInfo03`을 써요. 버전이 바뀌면 `MFDS_API_URL`로 맞춰 주세요. 연결 상태는 `/api/health`의 `mfds_status`에서 볼 수 있어요.
+- 식약처 서버가 느려서(1건 5~12초) 재료 수치는 `python safety.py`로 미리 받아 `data/mfds_nutrition.json`에 저장해 둬요. 기본 레시피가 바뀌면 다시 실행하세요. 파일에 없는 재료만 실시간으로 조회해요.
 - 데이터는 Firebase Firestore(프로젝트 ffff-da962)에 저장해요. 예전 Render Postgres 데이터는 `migrate_to_firestore.py`로 옮겼어요.
 - `legacy/`는 예전 안전보고서(PubMed RAG) 코드예요. 지금 화면에서는 쓰지 않아요.

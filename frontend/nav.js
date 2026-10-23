@@ -9,7 +9,7 @@
     '기록': 'recipe-book.html',
     '둘러보기': 'browse.html',
     '냉장고 촬영': 'home.html', 'camera': 'home.html',
-    '내 정보': 'family-profile.html', 'me': 'family-profile.html'
+    '내 정보': 'my-info.html', 'me': 'my-info.html'
   };
   var here = decodeURIComponent(location.pathname.split('/').pop() || 'index.html');
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab[data-tab]'));
