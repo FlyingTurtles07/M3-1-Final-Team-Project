@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>온가족 한상</title>
+<script>
+  // 첫 주소로 들어오면: 로그인한 적이 있으면 홈, 처음이면 회원가입으로 보내요
+  (function () {
+    var next = 'signup.html';
+    try { if (localStorage.getItem('onfamily_session')) next = 'home.html'; } catch (e) { /* 저장소를 못 쓰면 회원가입 */ }
+    location.replace(next);
+  })();
+</script>
+<noscript><meta http-equiv="refresh" content="0; url=signup.html"></noscript>
+</head>
+<body style="margin:0;background:#f4f2ec;font-family:system-ui,sans-serif">
+  <p style="padding:24px;text-align:center"><a href="signup.html">온가족 한상 시작하기</a></p>
+</body>
+</html>
