@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>내 정보 · 온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* 다른 화면(browse.html·family-profile.html)과 같은 색 */
+  :root {
+    --stage: #292929;
+    --paper: #f4f2ec;
+    --ink: #4a2f27;
+    --ink-deep: #231713;
+    --muted: #6b5a52;
+    --accent: #ffa233;
+    --line: #b1ac9d;
+    --card: rgba(255, 252, 248, .96);
+    --card-line: #ece0d6;
+    --danger: #d12b2b;
+    --tab-on: #6b3a2e;
+    --tab-off: #6e625b;
+    --font: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    box-sizing: border-box;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --stage: #1a1a1a; }
+  }
+  :root[data-theme="dark"] { --stage: #1a1a1a; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--stage);
+    font-family: var(--font);
+    display: flex; align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
+  button { font-family: inherit; }
+  .phone {
+    position: relative;
+    width: 390px;
+    height: min(844px, 100%);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    background: linear-gradient(to bottom, #f6e6d6 0, #f8efe6 240px, var(--paper) 520px);
+  }
+  @media (max-width: 420px) {
+    .phone { width: 100%; height: 100%; }
+  }
+  .scroll {
+    position: relative; z-index: 1; flex: 1; min-height: 0;
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 56px 16px 24px; scrollbar-width: none;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+  h1 { margin: 0 0 14px 2px; font-size: 25px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+  h2 { margin: 22px 0 8px 4px; font-size: 13px; font-weight: 800; color: var(--muted); }
+
+  /* 계정 카드 */
+  .account {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 16px; border-radius: 22px;
+    background: var(--card); border: 2px solid var(--card-line);
+  }
+  .avatar {
+    flex: none; width: 56px; height: 56px; border-radius: 50%;
+    display: grid; place-items: center; background: #ffe7c9;
+    font-size: 22px; font-weight: 800; color: var(--ink);
+  }
+  .account .who { flex: 1; min-width: 0; }
+  .account b { display: block; font-size: 18px; font-weight: 800; color: var(--ink-deep); }
+  .account span { display: block; font-size: 13px; font-weight: 500; color: var(--muted); word-break: break-all; }
+
+  .guest { padding: 20px 16px; border-radius: 22px; background: var(--card); border: 2px solid var(--card-line); text-align: center; }
+  .guest p { margin: 0 0 14px; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.5; word-break: keep-all; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .go {
+    display: grid; place-items: center; width: 100%; height: 52px;
+    border-radius: 30px; border: 2px solid var(--line);
+    background: #fbfaf6; color: #1f1a17; text-decoration: none;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+    transition: transform .15s, background .15s;
+  }
+  .go.primary { background: var(--accent); border-color: #e58a1f; }
+  .go:active { transform: scale(.985); }
+
+  /* 메뉴 목록 */
+  .menu { list-style: none; margin: 0; padding: 0; border-radius: 20px; overflow: hidden; background: var(--card); border: 2px solid var(--card-line); }
+  .menu li + li { border-top: 1px solid var(--card-line); }
+  .menu a {
+    display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 10px 16px;
+    color: var(--ink-deep); text-decoration: none; font-size: 15px; font-weight: 800;
+  }
+  .menu a:active { background: #fff6e8; }
+  .menu svg { flex: none; width: 22px; height: 22px; fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .menu .txt { flex: 1; min-width: 0; }
+  .menu small { display: block; margin-top: 1px; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu .chev { width: 18px; height: 18px; stroke: var(--line); }
+
+  .logout {
+    display: block; margin: 26px auto 0; padding: 10px 16px; border: 0; background: none; cursor: pointer;
+    font-size: 14px; font-weight: 700; color: #7a6359; text-decoration: underline; text-underline-offset: 3px;
+  }
+  [hidden] { display: none !important; }
+
+  .go:focus-visible, .menu a:focus-visible, .logout:focus-visible, .tab:focus-visible, .sheet-x:focus-visible {
+    outline: 3px solid var(--ink); outline-offset: 2px;
+  }
+
+  /* 하단 탭 */
+  .foot { position: relative; z-index: 1; background: var(--paper); border-top: 1px solid #e5ddd0; }
+  .tabs { display: flex; padding: 4px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 2px;
+    background: none; border: 0; cursor: pointer; color: var(--tab-off); font-size: 11px; font-weight: 500;
+  }
+  .tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tab[aria-current="page"] { color: var(--tab-on); font-weight: 800; }
+  .tab[aria-current="page"] svg { stroke-width: 2.3; }
+
+  /* 로그아웃 확인 시트 (가족 프로필의 캐릭터 시트와 같은 모양) */
+  .sheet-bg {
+    position: absolute; inset: 0; z-index: 30;
+    background: rgba(30,18,14,.45);
+    display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .sheet-bg.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    width: 100%; background: var(--paper); border-radius: 26px 26px 0 0;
+    padding: 18px 18px calc(22px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(24px); transition: transform .2s;
+  }
+  .sheet-bg.open .sheet { transform: translateY(0); }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sheet-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink-deep); }
+  .sheet-x {
+    width: 36px; height: 36px; border-radius: 50%; border: 0;
+    background: #e6e1d6; color: var(--ink-deep); font-size: 18px; font-weight: 800; cursor: pointer;
+  }
+  .agree { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: 14px; font-weight: 800; color: var(--ink-deep); cursor: pointer; line-height: 1.4; }
+  .agree input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+  .agree small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: #7a6359; }
+  .sheet .go { margin-top: 12px; }
+
+  .toast {
+    position: absolute; z-index: 40; left: 50%; bottom: 110px;
+    transform: translate(-50%, 12px);
+    background: #3b2a24; color: #fff; font-size: 13px; font-weight: 700;
+    padding: 10px 16px; border-radius: 20px; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; max-width: 90%; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="phone">
+  <div class="scroll">
+    <h1>내 정보</h1>
+
+    <!-- 로그인했을 때 -->
+    <section class="account" id="account" hidden>
+      <div class="avatar" id="avatar" aria-hidden="true">한</div>
+      <div class="who"><b id="userName">내 계정</b><span id="userEmail"></span></div>
+    </section>
+
+    <!-- 로그인 전 -->
+    <section class="guest" id="guest" hidden>
+      <p>로그인하면 가족 정보와 기록을<br>어느 기기에서든 볼 수 있어요.</p>
+      <div class="row2">
+        <a class="go primary" href="login.html">로그인</a>
+        <a class="go" href="signup.html">회원가입</a>
+      </div>
+    </section>
+
+    <h2>우리 가족</h2>
+    <ul class="menu">
+      <li><a href="family-profile.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.5"/><path d="M3 20c0-3.300 2.700-5.500 6-5.500s6 2.200 6 5.500M15 15c3 0 6 1.500 6 4.500"/></svg>
+        <span class="txt">가족 프로필 관리<small id="famSummary">가족별 알레르기·식사 조건</small></span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </a></li>
+    </ul>
+
+    <h2>레시피와 기록</h2>
+    <ul class="menu">
+      <li><a href="saved-recipes.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11v17l-5.500-4-5.500 4z"/></svg>
+        <span class="txt">저장한 레시피</span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </a></li>
+      <li><a href="recipe-book.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+        <span class="txt">나만의 레시피북</span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </a></li>
+      <li><a href="browse.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
+        <span class="txt">다른 집 한상</span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </a></li>
+    </ul>
+
+    <button class="logout" type="button" id="logoutBtn" aria-haspopup="dialog" hidden>로그아웃</button>
+  </div>
+
+  <footer class="foot">
+    <nav class="tabs" aria-label="하단 메뉴">
+      <button class="tab" type="button" data-tab="홈">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11 12 3.5 20.5 11V20.5h-5.5v-6h-6v6H3.5z"/></svg>홈
+      </button>
+      <button class="tab" type="button" data-tab="기록">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>기록
+      </button>
+      <button class="tab" type="button" data-tab="둘러보기">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>둘러보기
+      </button>
+      <button class="tab" type="button" aria-current="page" data-tab="내 정보">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4.2 3.3-6.8 7.5-6.8s7.5 2.6 7.5 6.8"/></svg>내 정보
+      </button>
+    </nav>
+  </footer>
+
+  <!-- 로그아웃 확인 시트 -->
+  <div class="sheet-bg" id="logoutBg" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
+      <div class="sheet-head">
+        <h2 id="logoutTitle">로그아웃할까요?</h2>
+        <button class="sheet-x" type="button" id="logoutX" aria-label="닫기">✕</button>
+      </div>
+      <label class="agree">
+        <input type="checkbox" id="logoutWipe" checked>
+        <span>이 기기에 저장된 가족 정보·기록도 지우기
+          <small>가족의 알레르기·건강 정보가 담겨 있어요. 다시 로그인하면 서버에서 불러와요.</small></span>
+      </label>
+      <button class="go primary" type="button" id="logoutDo">로그아웃</button>
+      <button class="go" type="button" id="logoutCancel">취소</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</main>
+
+<script src="api.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  // 로그인하면 서버에서 다시 불러오는 회원별 데이터 (서버 주소 설정 onfamily_api 는 남겨요)
+  var PERSONAL_KEYS = ['familyMembers', 'fridgeIngredients', 'myRecords', 'selectedMenu', 'ingredientDraft',
+    'shareSender', 'consents', 'savedRecipes', 'savedCollections', 'sharedPosts'];
+  var PERSONAL_PREFIXES = ['seenReactions_', 'myFeedback_'];
+
+  var toastTimer;
+  function toast(msg) {
+    $('toast').textContent = msg;
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').classList.remove('show'); }, 1900);
+  }
+
+  function renderFamily(list) {
+    if (!Array.isArray(list) || !list.length) { $('famSummary').textContent = '아직 등록한 가족이 없어요'; return; }
+    var names = list.map(function (m) { return m.name; }).filter(Boolean);
+    $('famSummary').textContent = '가족 ' + list.length + '명' + (names.length ? ' · ' + names.join(', ') : '');
+  }
+  var fam = [];
+  try { fam = JSON.parse(localStorage.getItem('familyMembers') || '[]'); } catch (e) {}
+  renderFamily(fam);
+
+  var loggedIn = HansangAPI.isLoggedIn();
+  $('account').hidden = !loggedIn;
+  $('guest').hidden = loggedIn;
+  $('logoutBtn').hidden = !loggedIn;
+  if (loggedIn) {
+    var u = HansangAPI.user() || {};
+    $('userName').textContent = u.name || '내 계정';
+    $('userEmail').textContent = u.email || '';
+    $('avatar').textContent = (u.name || u.email || '한').trim().charAt(0);
+    // 서버에 저장한 가족 수로 맞춰요
+    HansangAPI.loadDoc('family').then(function (v) { if (Array.isArray(v)) renderFamily(v); });
+  }
+
+  /* ---------- 로그아웃 ---------- */
+  function openLogout() {
+    $('logoutBg').classList.add('open');
+    $('logoutBg').setAttribute('aria-hidden', 'false');
+    $('logoutDo').focus();
+  }
+  function closeLogout() {
+    $('logoutBg').classList.remove('open');
+    $('logoutBg').setAttribute('aria-hidden', 'true');
+    $('logoutBtn').focus();
+  }
+  // 로그인 토큰은 기기에만 있어서(만료 시간이 있는 토큰) 지우면 로그아웃돼요
+  function doLogout() {
+    HansangAPI.clearSession();
+    if ($('logoutWipe').checked) {
+      try {
+        PERSONAL_KEYS.forEach(function (k) { localStorage.removeItem(k); });
+        Object.keys(localStorage).forEach(function (k) {
+          if (PERSONAL_PREFIXES.some(function (p) { return k.indexOf(p) === 0; })) localStorage.removeItem(k);
+        });
+        sessionStorage.clear();
+      } catch (e) {}
+    }
+    $('logoutBg').classList.remove('open');
+    toast('로그아웃했어요');
+    setTimeout(function () { location.replace('login.html'); }, 900);
+  }
+  $('logoutBtn').addEventListener('click', openLogout);
+  $('logoutX').addEventListener('click', closeLogout);
+  $('logoutCancel').addEventListener('click', closeLogout);
+  $('logoutDo').addEventListener('click', doLogout);
+  $('logoutBg').addEventListener('click', function (e) { if (e.target === this) closeLogout(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('logoutBg').classList.contains('open')) closeLogout();
+  });
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>레시피 보관함 · 온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tools .input { flex: 1 1 240px; }
+  .filters { display: flex; gap: 6px; }
+  .list { display: grid; gap: 14px; }
+  @media (min-width: 900px) { .list { grid-template-columns: 1fr 1fr; align-items: start; } }
+  .sc { padding: 0; overflow: hidden; }
+  .sc.flash { box-shadow: 0 0 0 3px var(--accent); }
+  .sc .top { display: flex; gap: 12px; padding: 12px; }
+  .sc .top img { width: 96px; height: 96px; border-radius: 14px; object-fit: cover; flex: none; background: var(--cream); }
+  .sc .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sc h2 { font-size: 16.5px; margin: 0; }
+  .sc .meta { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+  .fav { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; font-size: 22px; cursor: pointer; flex: none; color: #c9b9a8; }
+  .fav[aria-pressed="true"] { color: #f2a51e; }
+  .sc .memo { padding: 0 12px; }
+  .sc .memo textarea { min-height: 60px; font-size: 14px; }
+  .sc .bar { display: flex; gap: 8px; padding: 12px; flex-wrap: wrap; }
+  .sc .bar .btn { flex: 1 1 120px; }
+  .sc .detail { border-top: 1px solid var(--line); padding: 4px 16px 16px; background: #fffdf9; }
+  .sc .detail .row { margin-top: 12px; }
+  .sc .lack { font-size: 13px; }
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+
+<main class="page">
+  <div class="page-head">
+    <span class="step">5단계 · 레시피 보관함</span>
+    <h1>마음에 든 레시피를 모아 둬요</h1>
+    <p>저장한 레시피를 검색해서 다시 요리하고, 요리한 뒤에는 평가와 감사를 남겨 보세요.</p>
+  </div>
+
+  <div class="tools">
+    <label class="sr-only" for="q">레시피 검색</label>
+    <input class="input" id="q" type="search" placeholder="🔍 레시피 이름·재료로 검색">
+    <div class="filters" role="group" aria-label="필터">
+      <button class="chip" type="button" data-f="all" aria-pressed="true">전체</button>
+      <button class="chip" type="button" data-f="fav" aria-pressed="false">⭐ 즐겨찾기</button>
+    </div>
+  </div>
+
+  <div class="list" id="list"></div>
+  <p class="empty" id="empty" hidden></p>
+
+  <p class="disclaimer">참고용이며 성분표를 꼭 확인하세요. · AI가 생성한 레시피입니다.</p>
+</main>
+
+<nav id="tabbar"></nav>
+
+<script src="app.js"></script>
+<script src="recipe-view.js"></script>
+<script>
+(function () {
+  var $ = HS.$, el = HS.el;
+  HS.mount('saved');
+
+  var saved = HS.load('saved', []);
+  var members = HS.load('members', []);
+  var pantry = HS.load('pantry', []);
+  var meta = HS.load('pantryMeta', {});
+  var filter = 'all', openId = location.hash.slice(1) || null;
+  var stampNow = HS.familyStamp(members);
+
+  function persist() { HS.save('saved', saved); }
+  function matches(s, r, q) {
+    if (filter === 'fav' && !s.fav) return false;
+    if (!q) return true;
+    var hay = [r.name].concat(r.base, HS.tagsFor(r, members, pantry).map(function (t) { return t.text; }), [s.memo || '']).join(' ');
+    return hay.indexOf(q) !== -1;
+  }
+
+  function card(s, r) {
+    var check = HS.checkRecipe(r, members, { unconfirmed: meta.unconfirmed });
+    var tags = el('div', { class: 'tags' });
+    HS.tagsFor(r, members, pantry).slice(0, 5).forEach(function (t) { tags.appendChild(el('span', { class: 'tag ' + t.kind, text: t.text })); });
+    var fav = el('button', { class: 'fav', type: 'button', 'aria-pressed': String(!!s.fav), 'aria-label': '즐겨찾기', text: s.fav ? '★' : '☆',
+      onclick: function () { s.fav = !s.fav; persist(); render(); HS.toast(s.fav ? '즐겨찾기에 넣었어요' : '즐겨찾기에서 뺐어요'); } });
+    var memo = el('textarea', { class: 'textarea', maxlength: 200, placeholder: '메모 (예: 할머니가 좋아하셨어요)', 'aria-label': r.name + ' 메모' });
+    memo.value = s.memo || '';
+    memo.addEventListener('change', function () { s.memo = memo.value.trim(); persist(); HS.toast('메모를 저장했어요'); });
+
+    var isOpen = openId === s.id;
+    var detail = null;
+    if (isOpen) {
+      var lack = r.base.filter(function (i) { return HS.isStock(i) && pantry.indexOf(i) === -1; });
+      detail = el('div', { class: 'detail' }, [
+        el('div', { class: 'row' }, [HS.safetyNote()]),
+        el('div', { class: 'row' }, [el('span', { class: 'badge ai', text: '✦ AI가 생성한 레시피' })]),
+        s.stamp && s.stamp !== stampNow ? el('div', { class: 'notice', style: 'margin-top:10px' }, [el('span', { class: 'ic', text: '🔄' }), el('span', { text: '저장한 뒤 가족 프로필이 바뀌어서, 지금 가족 기준으로 안전 검사와 변형을 다시 했어요.' })]) : null,
+        el('p', { class: 'lack', style: 'margin-top:10px' }, [lack.length ? el('span', null, ['부족한 재료: ', el('b', { style: 'color:var(--danger)', text: lack.join(', ') })]) : el('b', { style: 'color:var(--ok)', text: '필요한 재료가 모두 있어요.' })]),
+        HS.recipeDetail(r, members, { pantry: pantry })
+      ]);
+    }
+    return el('article', { class: 'card sc', id: 'r-' + s.id }, [
+      el('div', { class: 'top' }, [
+        el('img', { src: r.img, alt: r.name, loading: 'lazy' }),
+        el('div', { class: 'info' }, [
+          el('h2', { text: r.name }),
+          el('p', { class: 'meta', text: '저장 ' + HS.fmtDate(s.savedAt) + ' · ⏱ ' + r.min + '분 · 4인분' }),
+          tags
+        ]),
+        fav
+      ]),
+      el('div', { class: 'memo' }, [memo]),
+      el('div', { class: 'bar' }, [
+        el('button', { class: 'btn sm' + (isOpen ? ' dark' : ''), type: 'button', 'aria-expanded': String(isOpen), text: isOpen ? '접기' : '🍳 다시 요리하기',
+          onclick: function () { openId = isOpen ? null : s.id; render(); if (!isOpen) $('r-' + s.id).scrollIntoView({ behavior: 'smooth', block: 'start' }); } }),
+        el('button', { class: 'btn sm primary', type: 'button', text: '요리 후 공유·감사', onclick: function () { HS.save('selected', { id: s.id, at: Date.now() }); location.href = 'share.html'; } }),
+        el('button', { class: 'btn sm danger', type: 'button', text: '삭제', 'aria-label': r.name + ' 삭제',
+          onclick: function () { saved = saved.filter(function (x) { return x !== s; }); persist(); render(); HS.toast('보관함에서 삭제했어요'); } })
+      ]),
+      detail
+    ]);
+  }
+
+  function render() {
+    var q = $('q').value.trim(), list = HS.clear($('list')), n = 0;
+    saved.forEach(function (s) {
+      var r = HS.recipeById(s.id);
+      if (!r || !matches(s, r, q)) return;
+      list.appendChild(card(s, r)); n++;
+    });
+    var e = $('empty');
+    e.hidden = n > 0;
+    if (!saved.length) { HS.clear(e).appendChild(document.createTextNode('아직 저장한 레시피가 없어요. ')); e.appendChild(el('a', { href: 'recipes.html', text: '추천 받으러 가기 →' })); }
+    else e.textContent = '조건에 맞는 레시피가 없어요.';
+  }
+
+  $('q').addEventListener('input', render);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-f]'), function (b) {
+    b.addEventListener('click', function () {
+      filter = b.getAttribute('data-f');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-f]'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      render();
+    });
+  });
+
+  render();
+  if (openId && $('r-' + openId)) { var c = $('r-' + openId); c.classList.add('flash'); c.scrollIntoView({ block: 'start' }); setTimeout(function () { c.classList.remove('flash'); }, 1600); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>레시피 추천 · 온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .status { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .cards { display: grid; gap: 16px; }
+  @media (min-width: 900px) { .cards { grid-template-columns: repeat(3, 1fr); align-items: start; } }
+  .rc { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .rc .ph { position: relative; aspect-ratio: 16 / 10; background: var(--cream); }
+  .rc .ph img { width: 100%; height: 100%; object-fit: cover; }
+  .rc .ph .badge { position: absolute; left: 10px; top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .rc .body { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .rc h2 { font-size: 18px; margin: 0; }
+  .rc .meta { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .rc .why { font-size: 13px; color: var(--ink-soft); background: var(--cream); border-radius: 12px; padding: 8px 10px; }
+  .rc .why b { color: var(--accent-ink); }
+  .rc .sec { font-size: 12.5px; font-weight: 800; color: var(--muted); margin-top: 2px; }
+  .rc .basetxt { font-size: 13.5px; }
+  .vmini { display: grid; gap: 6px; }
+  .vmini div { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+  .vmini img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: var(--accent-soft); flex: none; }
+  .vmini b { white-space: nowrap; }
+  details.more summary { cursor: pointer; font-weight: 800; font-size: 14px; color: var(--ink); min-height: 40px; display: flex; align-items: center; }
+  .rc .actions { margin-top: auto; padding-top: 6px; }
+  .loading { display: grid; place-items: center; min-height: 200px; color: var(--muted); font-weight: 800; }
+  .choice { display: grid; gap: 10px; }
+  .choice .btn { justify-content: flex-start; min-height: 64px; border-radius: 18px; text-align: left; }
+  .choice .btn small { display: block; font-weight: 600; color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+
+<main class="page">
+  <div class="page-head">
+    <span class="step">4단계 · 레시피 추천</span>
+    <h1>오늘 우리 가족 한 상, 3가지 제안</h1>
+    <p id="headSub">가족 프로필과 확인한 재료를 바탕으로 공통 요리와 구성원별 변형을 골랐어요.</p>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="notice" id="regenMsg" hidden style="margin-bottom:14px"><span class="ic" aria-hidden="true">🔄</span><span id="regenText"></span></div>
+
+  <div class="cards" id="cards"><div class="loading">레시피를 고르고 안전 검사를 하고 있어요…</div></div>
+
+  <div class="actions" style="justify-content:center">
+    <button class="btn" type="button" id="again" style="flex:0 1 280px">🔄 다른 메뉴 보기</button>
+  </div>
+
+  <p class="disclaimer">식약처 등 공공 데이터 기준, 참고용이며 성분표를 꼭 확인하세요. · AI가 생성한 레시피입니다. · 분량은 4인분(성인 1인분×4), g·mL 기준이에요.</p>
+</main>
+
+<nav id="tabbar"></nav>
+
+<div class="modal" id="choose" hidden role="dialog" aria-modal="true" aria-labelledby="chooseTitle">
+  <div class="modal-box">
+    <h2 id="chooseTitle">이 레시피로 할까요?</h2>
+    <div class="choice">
+      <button class="btn" type="button" id="toSave"><span>📌 보관함에 저장하기<small>저장해 두고 다시 요리할 때 꺼내 봐요</small></span></button>
+      <button class="btn" type="button" id="toShare"><span>💛 요리 후 평가·감사 남기기<small>식사 후 평가하고 요리한 가족에게 감사를 전해요</small></span></button>
+    </div>
+    <div class="actions"><button class="btn ghost" type="button" data-close>닫기</button></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="recipe-view.js"></script>
+<script>
+(function () {
+  var $ = HS.$, el = HS.el;
+  HS.mount('recipes');
+
+  var members = HS.load('members', []);
+  var pantry = HS.load('pantry', []);
+  var meta = HS.load('pantryMeta', {});
+  var shown = HS.load('shown', []);
+  var current = [], picked = null;
+
+  function status(list) {
+    var box = HS.clear($('status'));
+    if (!list.length) return;
+    box.appendChild(el('span', { class: 'badge ok', text: '✓ 알레르기·당뇨식·저염식 안전검사 통과' }));
+    box.appendChild(el('span', { class: 'badge ai', text: '✦ AI가 생성한 레시피입니다' }));
+  }
+
+  function card(x) {
+    var r = x.r, vs = HS.variants(r, members);
+    var mini = el('div', { class: 'vmini' });
+    vs.forEach(function (v) {
+      mini.appendChild(el('div', null, [el('img', { src: HS.charSrc(v.member.char), alt: '' }), el('span', null, [el('b', { text: v.member.name }), ' ' + v.items[0]])]));
+    });
+    var tags = el('div', { class: 'tags' });
+    HS.tagsFor(r, members, pantry).forEach(function (t) { tags.appendChild(el('span', { class: 'tag ' + t.kind, text: t.text })); });
+    var more = el('details', { class: 'more' }, [el('summary', { text: '상세 레시피 보기' }), HS.recipeDetail(r, members)]);
+    return el('article', { class: 'card rc' }, [
+      el('div', { class: 'ph' }, [el('img', { src: r.img, alt: r.name, loading: 'lazy' }), HS.safetyBadge(x.check)]),
+      el('div', { class: 'body' }, [
+        el('h2', { text: r.name }),
+        el('p', { class: 'meta', text: '⏱ ' + r.min + '분 · 4인분' }),
+        el('p', { class: 'why' }, [el('b', { text: '추천 이유 ' }), HS.reasonFor(r, members, pantry)]),
+        tags,
+        HS.safetyNote(),
+        el('p', { class: 'sec', text: '공통 베이스' }),
+        el('p', { class: 'basetxt', text: r.base.join(' · ') + '으로 한 번에 조리하고, 간은 마지막에 맞춰요.' }),
+        el('p', { class: 'sec', text: '구성원별 변형' }),
+        mini,
+        more,
+        el('div', { class: 'actions' }, [
+          el('button', { class: 'btn primary block', type: 'button', onclick: function () { open(r); }, text: '이 레시피 선택' })
+        ])
+      ])
+    ]);
+  }
+
+  function render() {
+    var cards = HS.clear($('cards'));
+    if (!members.length) {
+      cards.appendChild(el('div', { class: 'card empty' }, ['먼저 가족 구성원을 등록해 주세요. ', el('a', { href: 'family.html', text: '가족 프로필로 →' })]));
+      $('again').hidden = true; return;
+    }
+    if (!pantry.length) {
+      cards.appendChild(el('div', { class: 'card empty' }, ['확인한 재료가 없어요. ', el('a', { href: 'ingredients.html', text: '식재료 등록으로 →' })]));
+      $('again').hidden = true; return;
+    }
+    var res = HS.recommend(members, pantry, shown, { unconfirmed: meta.unconfirmed });
+    current = res.items;
+    if (!current.length) {
+      cards.appendChild(el('div', { class: 'card empty', text: '가족 모두가 안전하게 먹을 수 있는 메뉴를 찾지 못했어요. 재료를 더 추가해 보세요.' }));
+      $('again').hidden = true; status([]); return;
+    }
+    current.forEach(function (x) { cards.appendChild(card(x)); });
+    status(current);
+    var msgs = [];
+    if (res.excluded) msgs.push('가족 알레르기 재료가 들어간 메뉴 ' + res.excluded + '개는 안전 검사에서 빼고 다른 메뉴로 다시 골랐어요.');
+    if (res.cycled && shown.length) msgs.push('새 메뉴를 모두 보여드려서 처음 추천부터 다시 보여드려요.');
+    $('regenText').textContent = msgs.join(' ');
+    $('regenMsg').hidden = !msgs.length;
+    if (res.cycled) shown = [];
+    current.forEach(function (x) { if (shown.indexOf(x.r.id) === -1) shown.push(x.r.id); });
+    HS.save('shown', shown);
+  }
+
+  $('again').addEventListener('click', function () {
+    HS.clear($('cards')).appendChild(el('div', { class: 'loading', text: '새 메뉴를 고르고 있어요…' }));
+    setTimeout(function () { render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 500);
+  });
+
+  /* ---------- 선택 → 저장 또는 공유·감사 ---------- */
+  var modal = $('choose');
+  function open(r) { picked = r; $('chooseTitle').textContent = r.name + '(으)로 할까요?'; modal.hidden = false; $('toSave').focus(); }
+  modal.addEventListener('click', function (e) { if (e.target === modal || e.target.hasAttribute('data-close')) modal.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hidden = true; });
+
+  function select(r) { HS.save('selected', { id: r.id, at: Date.now() }); }
+  $('toSave').addEventListener('click', function () {
+    var saved = HS.load('saved', []);
+    select(picked);
+    if (saved.some(function (s) { return s.id === picked.id; })) { HS.toast('이미 보관함에 있어요'); }
+    else {
+      saved.unshift({ id: picked.id, savedAt: Date.now(), fav: false, memo: '', stamp: HS.familyStamp(members) });
+      HS.save('saved', saved);
+      HS.toast('보관함에 저장했어요');
+    }
+    modal.hidden = true;
+    setTimeout(function () { location.href = 'saved.html#' + picked.id; }, 700);
+  });
+  $('toShare').addEventListener('click', function () { select(picked); location.href = 'share.html'; });
+
+  setTimeout(render, 400);
+})();
+</script>
+</body>
+</html>
