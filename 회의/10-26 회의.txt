@@ -1,0 +1,13 @@
+10-26 회의
+
+레시피_추천_정책_22종.md
+레시피 지침 (Gemini 입력용) : recipe_guideline.md
+완성후 적용
+
+merge 문제로 main에 직접 push함
+또 VScode 문제로 사용자 잘못 입력 수정
+
+
+데이터 테이블 구상 했으나  나중에 쓸것이 많아서 적용 안하기로 함
+onfamily_data_tables_readable.md
+

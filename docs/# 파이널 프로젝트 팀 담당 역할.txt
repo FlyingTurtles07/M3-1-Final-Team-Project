@@ -1,0 +1,56 @@
+# 파이널 프로젝트 팀 담당 역할
+
+
+feature/planning-docs               안성현
+feature/ux-design                     이수지
+feature/ai-agent                       이미지
+feature/backend-infra               김지숙
+feature/frontend-safety             김지혜
+
+
+| 브랜치 | 담당 | 주요 작업 |
+|---|---|---|
+| `feature/planning-docs` | 팀장·기획 (안성현) | 기획/문서/README/.github |
+| `feature/ux-design` | UX·UI (이수지) | `design/` |
+| `feature/ai-agent` | 이미지 | `backend/agent/`, `prompts/`, `rag/` |
+| `feature/backend-infra` | 김지숙 | `backend/api/`, `backend/db/`, 배포 |
+| `feature/frontend-safety` | 김지혜 | `frontend/`, `backend/safety/`, `tests/` |
+
+
+
+
+# 🔥 최종 협업 구조
+
+이렇게 운영하면 아주 깔끔합니다.
+
+```text
+                    ┌─ feature/planning-docs
+                    │       팀장·기획
+                    │
+                    ├─ feature/ux-design
+                    │       이수지
+                    │
+                    ├─ feature/ai-agent
+                    │       이미지
+                    │
+main ────┼─ feature/backend-infra
+                    │       김지숙 
+                    │
+                    └─ feature/frontend-safety
+                             김지혜
+
+
+각자 작업
+   ↓
+Commit
+   ↓
+Push
+   ↓
+Pull Request
+   ↓
+리뷰
+   ↓
+Merge
+   ↓
+main
+```
