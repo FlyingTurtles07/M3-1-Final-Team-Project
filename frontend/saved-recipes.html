@@ -126,7 +126,7 @@
   .rcp-list b { font-weight: 800; }
   .rcp-steps { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.55; font-weight: 700; }
   .rcp { margin-top: 8px; padding: 10px 12px; border-radius: 14px; background: #fffaf3; border: 1.5px dashed #ead7bf; }
-  .steps-toggle { align-self: flex-start; margin: 8px 0 0; padding: 4px 0; border: 0; background: none; cursor: pointer; color: var(--brown); font-size: 12.5px; font-weight: 800; }
+  .steps-toggle { align-self: flex-start; margin: 8px 0 0; height: 36px; padding: 0 14px; border: 2px solid var(--line); border-radius: 18px; background: #fff; cursor: pointer; color: var(--brown); font-size: 13px; font-weight: 800; }
   .steps { margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.55; font-weight: 600; color: var(--ink-deep); }
   .row { margin-top: auto; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .pick { height: 36px; padding: 0 14px; border: 2px solid var(--line); border-radius: 18px; background: var(--accent); color: #3b2418; font-size: 13px; font-weight: 800; cursor: pointer; }
@@ -296,13 +296,9 @@
 <script>
   /* =====================================================
    * 1) 저장소
-   *    지금은 브라우저(localStorage)에 저장해요.
-   *    실제 서비스에서는 아래 load/persist 부분을 서버 호출로 바꾸세요.
-   *      GET    /api/saved-recipes           저장한 요리 목록
-   *      POST   /api/saved-recipes           요리 저장
-   *      PATCH  /api/saved-recipes/:id       메모·묶음 등 수정
-   *      DELETE /api/saved-recipes/:id       삭제
-   *      GET/POST/DELETE /api/collections    묶음 목록·추가·삭제
+   *    브라우저(localStorage)에 저장하고, 로그인했으면 서버(Render → Firebase Firestore)에도 저장해요.
+   *      GET/PUT /api/me/data/saved          저장한 요리 목록
+   *      GET/PUT /api/me/data/collections    묶음 목록
    * ===================================================== */
   var KEY_ITEMS = 'savedRecipes';
   var KEY_COLS = 'savedCollections';
@@ -341,7 +337,10 @@
     try {
       localStorage.setItem(KEY_ITEMS, JSON.stringify(state.items));
       localStorage.setItem(KEY_COLS, JSON.stringify(state.cols));
-      if (window.HansangAPI) HansangAPI.saveDoc('saved', state.items);   // 서버에도 저장 (로그인했을 때)
+      if (window.HansangAPI) {                                            // 서버에도 저장 (로그인했을 때)
+        HansangAPI.saveDoc('saved', state.items);
+        HansangAPI.saveDoc('collections', state.cols);
+      }
     } catch (e) {
       if (!storageWarned) { storageWarned = true; show('이 환경에서는 저장 내용이 유지되지 않아요'); }
     }
@@ -535,7 +534,7 @@
     }
 
     var row = el('div', 'row');
-    var pick = el('button', 'pick', '이 메뉴로 할래요'); pick.type = 'button';
+    var pick = el('button', 'pick', '리뷰 남기기'); pick.type = 'button';
     pick.addEventListener('click', function () { chooseMenu(it); });
     var ed = el('button', 'edit', '편집'); ed.type = 'button';
     ed.setAttribute('aria-label', it.title + ' 편집');
@@ -570,13 +569,12 @@
 
   function render() { renderCols(); renderList(); }
 
-  // 저장한 요리를 "오늘의 메뉴"로 정하기 → 다음 화면(식사 후 의견 등)에서 이 메뉴를 써요
+  // 저장한 요리로 리뷰 남기기 → 리뷰 화면(feedback.html)에서 이 메뉴를 써요
   function chooseMenu(it) {
     var menu = { recipe: { id: it.recipeId || it.id, title: it.title, photo: it.photo || null, minutes: it.minutes, servings: it.servings, steps: it.steps || [], allergens: it.allergens || [] }, variations: [] };
     try { localStorage.setItem('selectedMenu', JSON.stringify(menu)); } catch (e) { /* 저장 불가 환경이면 건너뜀 */ }
     window.selectedMenu = menu;
-    /* 실제 서비스에서는 여기서 다음 화면으로 이동해요: location.href = 'today-meal.html'; */
-    show('오늘의 메뉴로 정했어요: ' + it.title);
+    show(it.title + ' 리뷰를 남기러 가요');
     setTimeout(function () { location.href = 'feedback.html'; }, 700);   // 요리 후 의견 남기기
   }
 
@@ -663,16 +661,28 @@
   /* ---------- 시작 ---------- */
   render();
 
-  // 로그인했으면 서버 보관함을 불러와요 (서버에 아직 없으면 이 기기 내용을 올려요)
+  // 로그인했으면 서버 보관함·묶음을 불러와요 (서버에 아직 없으면 이 기기 내용을 올려요)
   if (window.HansangAPI && HansangAPI.isLoggedIn()) {
-    HansangAPI.loadDoc('saved').then(function (v) {
+    Promise.all([HansangAPI.loadDoc('saved'), HansangAPI.loadDoc('collections')]).then(function (r) {
+      var v = r[0], cols = r[1];
       if (Array.isArray(v)) {
         state.items = v;
         try { localStorage.setItem(KEY_ITEMS, JSON.stringify(v)); } catch (e) {}
-        render();
       } else {
         HansangAPI.saveDoc('saved', state.items);
       }
+      if (Array.isArray(cols)) {
+        state.cols = cols;
+        try { localStorage.setItem(KEY_COLS, JSON.stringify(cols)); } catch (e) {}
+      } else {
+        HansangAPI.saveDoc('collections', state.cols);
+      }
+      // 다른 기기에서 만든 묶음에 담긴 요리도 묶음 칩이 보이게 채워 넣어요
+      state.items.forEach(function (it) {
+        if (it.collection && state.cols.indexOf(it.collection) < 0) state.cols.push(it.collection);
+      });
+      if (state.activeCol && state.cols.indexOf(state.activeCol) < 0) state.activeCol = null;
+      render();
     });
   }
 </script>
