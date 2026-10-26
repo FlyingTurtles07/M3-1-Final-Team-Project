@@ -288,6 +288,38 @@ def add_feedback(**fields) -> None:
     db().collection("feedback").add(fields)
 
 
+# ---------------------------------------------------------------- 레시피 추천 정책 (upload_policies.py 가 올려요)
+POLICY_META = ("COMMON", "GUIDELINE")
+
+
+def put_policies(data: dict) -> int:
+    col = db().collection("recipe_policies")
+    t = now()
+    batch = db().batch()
+    batch.set(col.document("COMMON"), {"text": data["common"], "version": data["version"], "updated_at": t})
+    batch.set(col.document("GUIDELINE"), {"text": data["guideline"], "version": data["version"], "updated_at": t})
+    for code, p in data["policies"].items():
+        batch.set(col.document(code), {**p, "version": data["version"], "updated_at": t})
+    for doc in col.stream():   # 문서에서 빠진 정책은 지워요
+        if doc.id not in POLICY_META and doc.id not in data["policies"]:
+            batch.delete(doc.reference)
+    batch.commit()
+    return len(data["policies"]) + len(POLICY_META)
+
+
+def get_policies() -> dict:
+    out = {"common": "", "guideline": "", "version": "", "policies": {}}
+    for doc in db().collection("recipe_policies").stream():
+        d = doc.to_dict()
+        if doc.id == "COMMON":
+            out["common"], out["version"] = d.get("text", ""), d.get("version", "")
+        elif doc.id == "GUIDELINE":
+            out["guideline"] = d.get("text", "")
+        else:
+            out["policies"][doc.id] = {k: d.get(k) for k in ("code", "category", "title", "text", "active")}
+    return out
+
+
 # ---------------------------------------------------------------- 가족 의견 링크 (카카오톡으로 보내는 링크)
 SHARE_HOURS = 24   # 링크는 하루 동안 열려요 (다시 켜면 하루 연장)
 
