@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>가족 프로필 · 온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .members { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 12px; margin: 0 -16px 8px; padding-left: 16px; padding-right: 16px; scrollbar-width: thin; }
+  .mchip { flex: none; display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 6px 14px 6px 6px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 800; font-size: 14px; }
+  .mchip img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: var(--accent-soft); }
+  .mchip .sub { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); text-align: left; }
+  .mchip[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink) inset; }
+  .mchip.allergy { border-color: var(--danger); background: var(--danger-soft); }
+  .mchip.allergy .warn { color: var(--danger); }
+  .mchip.add { padding: 6px 16px; border-style: dashed; color: var(--ink-soft); }
+  .namerow { display: flex; gap: 12px; align-items: center; }
+  .avatar { flex: none; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--line); background: var(--accent-soft); overflow: hidden; cursor: pointer; padding: 0; position: relative; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar .edit { position: absolute; right: 0; bottom: 0; left: 0; background: rgba(59,36,24,.7); color: #fff; font-size: 10.5px; font-weight: 800; padding: 1px 0; }
+  .namerow .input { flex: 1; }
+  .charGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 10px; }
+  .charGrid button { border: 2px solid var(--line); border-radius: 16px; background: #fff; padding: 6px 4px 4px; cursor: pointer; font-size: 12px; font-weight: 700; }
+  .charGrid button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .charGrid img { width: 56px; height: 56px; margin: 0 auto 2px; border-radius: 50%; object-fit: cover; }
+  .side h2 { font-size: 15px; }
+  .side ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
+  @media (min-width: 900px) { .layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; } .side { position: sticky; top: 76px; } }
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+
+<main class="page">
+  <div class="page-head">
+    <span class="step">2단계 · 가족 프로필</span>
+    <h1>함께 먹을 가족을 알려 주세요</h1>
+    <p>구성원마다 알레르기와 식사 조건을 등록하면, 모든 추천이 이 정보를 기준으로 만들어져요.</p>
+  </div>
+
+  <div class="members" id="members" role="list" aria-label="가족 구성원"></div>
+
+  <div class="layout">
+    <form class="card" id="form" novalidate>
+      <h2 id="formTitle">새 구성원</h2>
+
+      <div class="field">
+        <label class="label" for="name">캐릭터와 이름(별칭)<span class="req">*</span></label>
+        <div class="namerow">
+          <button class="avatar" type="button" id="avatarBtn" aria-label="캐릭터 고르기"><img id="avatarImg" alt=""><span class="edit">변경</span></button>
+          <input class="input" id="name" maxlength="10" placeholder="예: 아빠, 엄마, 민준">
+        </div>
+        <p class="err" id="nameErr"></p>
+      </div>
+
+      <div class="field">
+        <span class="label" id="ageLbl">연령대<span class="req">*</span></span>
+        <div class="chips" id="ages" role="group" aria-labelledby="ageLbl"></div>
+      </div>
+
+      <div class="field">
+        <span class="label" id="alLbl">알레르기 <span class="muted small">(여러 개 선택 가능)</span></span>
+        <div class="chips" id="allergies" role="group" aria-labelledby="alLbl"></div>
+        <p class="hint">⚠ 선택한 알레르기 재료는 레시피를 만들 때 처음부터 빼요. 교차오염까지 고려해요.</p>
+      </div>
+
+      <div class="field">
+        <span class="label" id="cdLbl">건강상 식사 조건 <span class="muted small">(여러 개 선택 가능)</span></span>
+        <div class="chips" id="conditions" role="group" aria-labelledby="cdLbl"></div>
+        <p class="hint">유동식·이유식은 전문가 확인 후 제공해요.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="notes">기타 참고사항</label>
+        <input class="input" id="notes" maxlength="80" placeholder="식단 목표, 기피 음식 (쉼표로 구분) 예: 체중 관리, 가지">
+      </div>
+
+      <div class="field">
+        <div class="notice">
+          <span class="ic" aria-hidden="true">🔒</span>
+          <span>여기서 선택하거나 적은 알레르기·식사 조건은 <b>건강 정보(민감정보)</b>예요. 레시피 추천과 안전 검사에만 쓰고, 암호화해 보관하며 외부에 제공하거나 유출되지 않도록 관리해요. 구성원을 삭제하면 건강 정보도 함께 삭제돼요.</span>
+        </div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="consent"><span>(필수) 건강 정보 수집·이용에 동의합니다.</span></label>
+        <label class="check"><input type="checkbox" id="proxy"><span>다른 가족의 정보를 대신 입력하는 경우, 해당 가족(또는 법정대리인)의 동의를 확인했어요.</span></label>
+        <p class="err" id="consentErr"></p>
+      </div>
+
+      <div class="actions">
+        <button class="btn danger" type="button" id="del" hidden>삭제</button>
+        <button class="btn primary" type="submit" id="saveBtn">저장</button>
+      </div>
+    </form>
+
+    <aside class="side">
+      <div class="card">
+        <h2>이렇게 쓰여요</h2>
+        <ul>
+          <li>알레르기 재료는 공통 요리에서 <b>처음부터 제외</b>해요.</li>
+          <li>저염식·어린이·어르신 몫은 마지막 단계에서 양념·식감·분량을 조절해요.</li>
+          <li>식사 후 피드백에서 기피 재료가 제안되면, 승인한 경우에만 프로필에 반영해요.</li>
+        </ul>
+      </div>
+      <div class="actions">
+        <a class="btn dark block" href="ingredients.html" id="next">다음: 식재료 →</a>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<nav id="tabbar"></nav>
+
+<div class="modal" id="charModal" hidden role="dialog" aria-modal="true" aria-labelledby="charTitle">
+  <div class="modal-box">
+    <h2 id="charTitle">캐릭터 고르기</h2>
+    <div class="charGrid" id="charGrid"></div>
+    <div class="actions"><button class="btn" type="button" data-close>닫기</button></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  var $ = HS.$, el = HS.el;
+  HS.mount('family');
+
+  var members = HS.load('members', []);
+  var editing = null;                 // 수정 중인 구성원 id (null = 새 구성원)
+  var form = blank();
+
+  function blank() { return { char: HS.CHARACTERS[0], name: '', age: '성인', allergies: [], allergyCustom: '', conditions: ['일반식'], conditionCustom: '', notes: '', consent: false, proxy: false }; }
+  function hasAllergy(m) { return HS.allergiesOf(m).length > 0; }
+
+  /* ---------- 구성원 목록 ---------- */
+  function renderMembers() {
+    var box = HS.clear($('members'));
+    members.forEach(function (m) {
+      var al = hasAllergy(m);
+      var b = el('button', { type: 'button', class: 'mchip' + (al ? ' allergy' : ''), role: 'listitem', 'aria-pressed': String(editing === m.id),
+        onclick: function () { edit(m.id); } }, [
+        el('img', { src: HS.charSrc(m.char), alt: '' }),
+        el('span', null, [m.name, el('span', { class: 'sub' + (al ? ' warn' : ''), text: m.age + (al ? ' · ⚠ ' + HS.allergiesOf(m).join('·') : '') })])
+      ]);
+      box.appendChild(b);
+    });
+    box.appendChild(el('button', { type: 'button', class: 'mchip add', role: 'listitem', 'aria-pressed': String(editing === null), onclick: function () { edit(null); }, text: '+ 새 구성원' }));
+  }
+
+  /* ---------- 칩 그룹 ---------- */
+  function chipGroup(boxId, options, key, opts) {
+    var box = HS.clear($(boxId));
+    options.forEach(function (o) {
+      var on = opts.single ? form[key] === o : form[key].indexOf(o) !== -1;
+      box.appendChild(el('button', { type: 'button', class: 'chip' + (opts.red && o !== '없음' ? ' red' : ''), 'aria-pressed': String(on),
+        onclick: function () { opts.toggle(o); renderForm(); }, text: (opts.red && o !== '없음' && on ? '⚠ ' : '') + o }));
+    });
+    if (opts.customKey) {
+      var inp = el('input', { class: 'chip-input', placeholder: '직접 입력', 'aria-label': '직접 입력 (쉼표로 구분)', maxlength: 30 });
+      inp.value = form[opts.customKey];
+      inp.addEventListener('input', function () { form[opts.customKey] = inp.value; });
+      box.appendChild(inp);
+    }
+  }
+  function toggleMulti(key, o, exclusive) {
+    var arr = form[key], i = arr.indexOf(o);
+    if (i !== -1) { arr.splice(i, 1); return; }
+    if (o === exclusive) { form[key] = [o]; return; }
+    form[key] = arr.filter(function (x) { return x !== exclusive; }).concat([o]);
+  }
+
+  function renderForm() {
+    $('formTitle').textContent = editing ? form.name + ' 정보 수정' : '새 구성원';
+    $('avatarImg').src = HS.charSrc(form.char);
+    $('name').value = form.name;
+    chipGroup('ages', HS.AGES, 'age', { single: true, toggle: function (o) { form.age = o; } });
+    chipGroup('allergies', HS.ALLERGENS.concat(['없음']), 'allergies', { red: true, customKey: 'allergyCustom',
+      toggle: function (o) { toggleMulti('allergies', o, '없음'); if (o === '없음') form.allergyCustom = ''; } });
+    chipGroup('conditions', HS.CONDITIONS, 'conditions', { customKey: 'conditionCustom',
+      toggle: function (o) { toggleMulti('conditions', o, '일반식'); } });
+    $('notes').value = form.notes;
+    $('consent').checked = form.consent; $('proxy').checked = form.proxy;
+    $('del').hidden = !editing;
+    $('saveBtn').textContent = editing ? '수정 저장' : '저장';
+  }
+  $('name').addEventListener('input', function () { form.name = this.value; });
+  $('notes').addEventListener('input', function () { form.notes = this.value; });
+  $('consent').addEventListener('change', function () { form.consent = this.checked; });
+  $('proxy').addEventListener('change', function () { form.proxy = this.checked; });
+
+  function edit(id) {
+    editing = id;
+    var m = members.filter(function (x) { return x.id === id; })[0];
+    form = m ? JSON.parse(JSON.stringify(Object.assign(blank(), m))) : blank();
+    $('nameErr').textContent = ''; $('consentErr').textContent = '';
+    renderMembers(); renderForm();
+    $('form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- 저장 / 삭제 ---------- */
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    form.name = form.name.trim();
+    var ok = true;
+    $('nameErr').textContent = form.name ? '' : '이름(별칭)을 입력해 주세요.';
+    if (!form.name) ok = false;
+    if (form.name && members.some(function (m) { return m.name === form.name && m.id !== editing; })) { $('nameErr').textContent = '같은 이름의 구성원이 있어요.'; ok = false; }
+    $('consentErr').textContent = form.consent ? '' : '건강 정보 수집·이용에 동의해야 저장할 수 있어요.';
+    if (!form.consent) ok = false;
+    if (!ok) return;
+    if (!form.conditions.length && !form.conditionCustom.trim()) form.conditions = ['일반식'];
+    var rec = Object.assign({}, form, { id: editing || HS.uid(), allergyCustom: form.allergyCustom.trim(), conditionCustom: form.conditionCustom.trim(), notes: form.notes.trim(), consentAt: Date.now() });
+    if (editing) members = members.map(function (m) { return m.id === editing ? rec : m; });
+    else members.push(rec);
+    HS.save('members', members);
+    HS.toast(editing ? form.name + ' 정보를 수정했어요' : form.name + ' 님을 추가했어요');
+    edit(null);
+  });
+
+  $('del').addEventListener('click', function () {
+    var m = members.filter(function (x) { return x.id === editing; })[0];
+    if (!m) return;
+    if (!confirm(m.name + ' 님을 삭제할까요?\n입력한 알레르기·식사 조건 등 건강 정보도 함께 삭제돼요.')) return;
+    members = members.filter(function (x) { return x.id !== editing; });
+    HS.save('members', members);
+    HS.toast(m.name + ' 님과 건강 정보를 삭제했어요');
+    edit(null);
+  });
+
+  $('next').addEventListener('click', function (e) {
+    if (!members.length) { e.preventDefault(); HS.toast('구성원을 한 명 이상 저장해 주세요'); }
+  });
+
+  /* ---------- 캐릭터 고르기 ---------- */
+  var modal = $('charModal');
+  $('avatarBtn').addEventListener('click', function () {
+    var g = HS.clear($('charGrid'));
+    HS.CHARACTERS.forEach(function (c) {
+      g.appendChild(el('button', { type: 'button', 'aria-pressed': String(form.char === c), onclick: function () { form.char = c; modal.hidden = true; renderForm(); $('avatarBtn').focus(); } },
+        [el('img', { src: HS.charSrc(c), alt: '' }), c.replace(/\d+$/, '')]));
+    });
+    modal.hidden = false;
+  });
+  modal.addEventListener('click', function (e) { if (e.target === modal || e.target.hasAttribute('data-close')) modal.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hidden = true; });
+
+  renderMembers(); renderForm();
+})();
+</script>
+</body>
+</html>

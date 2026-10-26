@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>공유·감사 · 온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .sel { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .sel img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex: none; }
+  .sel h2 { font-size: 17px; margin: 0; }
+  .sec-title { font-size: 13px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+  .thanks { display: grid; gap: 10px; margin-top: 14px; }
+  .tcard { display: flex; gap: 10px; padding: 12px; border-radius: 16px; background: #fffaf2; border: 1px solid #f3dcbc; }
+  .tcard img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--accent-soft); flex: none; }
+  .tcard .t { flex: 1; min-width: 0; font-size: 14px; }
+  .tcard .t small { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+  .likeBtn { align-self: center; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; font-weight: 800; cursor: pointer; font-size: 13.5px; }
+  .likeBtn[aria-pressed="true"] { background: #ffe1e1; border-color: #f2a3a3; color: #b3261e; }
+  .upload { border: 2px dashed #e6cfb2; border-radius: 18px; padding: 16px; text-align: center; background: #fffdf9; }
+  .upload img { max-height: 240px; margin: 0 auto 10px; border-radius: 12px; }
+  .suggest { margin-top: 12px; }
+  .feed { display: grid; gap: 16px; }
+  @media (min-width: 900px) { .feed { grid-template-columns: repeat(3, 1fr); align-items: start; } }
+  .post { padding: 0; overflow: hidden; }
+  .post > img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+  .post .pb { padding: 12px 14px 14px; display: grid; gap: 8px; }
+  .post .who { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+  .post h3 { font-size: 15.5px; }
+  .post .desc { font-size: 13.5px; color: var(--ink-soft); }
+  .post .foot { font-size: 11.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+  .post .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .status-pill { font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--cream); color: var(--ink-soft); }
+  .status-pill.pub { background: var(--ok-soft); color: var(--ok); }
+  .mine { display: grid; gap: 12px; margin-top: 14px; }
+  .mine .m { display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: #fff; flex-wrap: wrap; }
+  .mine .m img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; }
+  .mine .m .t { flex: 1; min-width: 120px; font-size: 13.5px; font-weight: 700; }
+  .feed-tools { margin: 0 0 14px; }
+  section.block { margin-top: 28px; }
+  section.block > h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+  section.block > p { color: var(--ink-soft); font-size: 13.5px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+
+<main class="page">
+  <div class="page-head">
+    <span class="step">6단계 · 공유·감사</span>
+    <h1>맛있게 드셨나요?</h1>
+    <p>식사 후 평가와 감사를 남기고, 원하면 우리 가족 한 상을 다른 가정과 나눠요.</p>
+  </div>
+
+  <div class="card notice" id="noRecipe" hidden>
+    <span class="ic" aria-hidden="true">🍽</span>
+    <span>먼저 요리할 레시피를 골라 주세요. <a href="saved.html">보관함에서 고르기</a> 또는 <a href="recipes.html">추천 받기</a></span>
+  </div>
+
+  <div class="grid2" id="mineArea">
+    <!-- 영역 A -->
+    <section class="card" aria-labelledby="aTitle">
+      <p class="sec-title">A. 식사 후 평가·감사</p>
+      <div class="sel" id="selBox"></div>
+      <h2 id="aTitle" class="sr-only">식사 후 평가와 감사</h2>
+      <form id="formA" novalidate>
+        <div class="field">
+          <span class="label" id="rateLbl">오늘 요리는 어땠나요?<span class="req">*</span></span>
+          <div class="chips" id="rates" role="group" aria-labelledby="rateLbl"></div>
+          <p class="err" id="rateErr"></p>
+        </div>
+        <div class="field">
+          <label class="label" for="opinion">의견</label>
+          <textarea class="textarea" id="opinion" maxlength="200" placeholder="예: 민준이가 당근을 남겼어요. 국물이 조금 싱거웠어요."></textarea>
+        </div>
+        <div class="field">
+          <label class="label" for="to">감사의 글 · 요리한 가족</label>
+          <select class="select" id="to"></select>
+        </div>
+        <div class="field">
+          <div class="chips" id="phrases" aria-label="감사 문구 고르기"></div>
+          <textarea class="textarea" id="thanksText" maxlength="150" placeholder="직접 쓰거나 위 문구를 골라요. 비워 두면 기본 문구로 남겨요." style="margin-top:10px"></textarea>
+          <p class="hint">감사 카드는 우리 가족 안에서만 보여요.</p>
+        </div>
+        <div class="actions"><button class="btn primary block" type="submit">평가와 감사 남기기</button></div>
+      </form>
+      <div class="suggest" id="suggest" hidden></div>
+      <div class="thanks" id="thanks"></div>
+    </section>
+
+    <!-- 영역 B -->
+    <section class="card" aria-labelledby="bTitle">
+      <p class="sec-title">B. 우리 가족 요리 기록 · 공유 (선택)</p>
+      <h2 id="bTitle" style="font-size:16px">완성된 요리 사진을 남겨요</h2>
+      <p class="hint" style="margin:-4px 0 12px">이 앱에서 고른 레시피로 만든 요리 사진만 올릴 수 있어요. 기본은 <b>비공개</b>로 저장돼요.</p>
+      <div class="upload" id="upload">
+        <img id="photoPrev" alt="올린 요리 사진" hidden>
+        <div class="row" style="justify-content:center">
+          <button class="btn primary sm" type="button" id="pCam">📷 촬영하기</button>
+          <button class="btn sm" type="button" id="pGal">🖼 앨범에서 선택</button>
+        </div>
+      </div>
+      <div class="notice" style="margin-top:10px"><span class="ic" aria-hidden="true">🙈</span><span>얼굴이 나오지 않게 요리만 찍어 주세요. 올릴 때 사진 속 GPS 위치 정보는 지워져요.</span></div>
+
+      <div class="field" style="margin-top:14px">
+        <span class="label">사진 아래 태그 <span class="muted small">(골라서 붙이거나 직접 써요)</span></span>
+        <div class="chips" id="tagChips"></div>
+        <div class="row" style="margin-top:8px">
+          <input class="chip-input" id="tagInput" maxlength="12" placeholder="직접 입력" aria-label="태그 직접 입력" style="flex:1">
+          <button class="btn sm" type="button" id="tagAdd">추가</button>
+        </div>
+        <p class="err" id="tagErr"></p>
+        <p class="hint">건강 관련 태그는 직접 쓸 수 없고, 위 목록에서만 고를 수 있어요. ‘치료’·‘효과’ 같은 의료적 단정 표현은 쓸 수 없어요.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="pDesc">설명</label>
+        <textarea class="textarea" id="pDesc" maxlength="150" placeholder="예: 할머니 몫은 덜어서 싱겁게 했어요."></textarea>
+        <p class="err" id="descErr"></p>
+      </div>
+      <div class="actions"><button class="btn dark block" type="button" id="pSave">비공개로 저장</button></div>
+
+      <div class="mine" id="mine"></div>
+    </section>
+  </div>
+
+  <!-- 영역 C -->
+  <section class="block" aria-labelledby="cTitle">
+    <h2 id="cTitle">다른 가정의 한 상</h2>
+    <p>다른 가족이 공유한 요리예요. 좋아요와 추천으로 반응을 남겨 보세요.</p>
+    <div class="feed-tools">
+      <span class="label" id="exLbl">알레르기 재료 제외하고 보기</span>
+      <div class="chips" id="exChips" role="group" aria-labelledby="exLbl"></div>
+      <p class="hint" id="exHint" hidden>선택한 알레르기 재료가 없고 안전 검사를 통과한 게시물만 보여요.</p>
+    </div>
+    <div class="feed" id="feed"></div>
+    <p class="empty" id="feedEmpty" hidden>조건에 맞는 게시물이 없어요.</p>
+  </section>
+
+  <p class="disclaimer">참고용이며 성분표를 꼭 확인하세요 · AI가 생성한 레시피입니다</p>
+</main>
+
+<nav id="tabbar"></nav>
+<input type="file" id="inCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="inGal" accept="image/*" hidden>
+
+<div class="modal" id="shareModal" hidden role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="modal-box">
+    <h2 id="shTitle">다른 가정과 공유할까요?</h2>
+    <div class="notice"><span class="ic" aria-hidden="true">🌏</span><span>공유하면 사진·태그·설명이 다른 가정에게 공개돼요. 가족 이름과 건강 정보는 공개되지 않아요. 언제든 삭제할 수 있어요.</span></div>
+    <label class="check" style="margin-top:12px"><input type="checkbox" id="shAgree"><span>(필수) 게시물 공개에 동의합니다.</span></label>
+    <p class="err" id="shErr"></p>
+    <div class="actions"><button class="btn" type="button" data-close>취소</button><button class="btn primary" type="button" id="shGo">공개로 전환</button></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  var $ = HS.$, el = HS.el;
+  HS.mount('share');
+
+  var members = HS.load('members', []);
+  var sel = HS.load('selected', null);
+  var recipe = sel ? HS.recipeById(sel.id) : null;
+  var thanks = HS.load('thanks', []);
+  var posts = HS.load('posts', []);
+  var reacts = HS.load('reacts', {});      // { postId: { like: true, rec: true } }
+
+  var RATES = ['맛있어요', '괜찮아요', '보통이에요', '별로예요'];
+  var PHRASES = ['정성껏 요리해 주셔서 감사해요.', '오늘도 맛있는 한 상 고마워요!', '다 같이 먹으니 더 맛있었어요.', '덕분에 든든하게 먹었어요.'];
+  var DEFAULT_THANKS = PHRASES[0];
+  var ALLOWED_TAGS = ['한 번에 조리', '부드러운 식감', '저염 조리', '견과류 제외', '달걀 제외', '우유 제외', '아이와 함께', '어르신과 함께'];
+  var HEALTH_WORDS = /당뇨|혈당|혈압|암|치료|완치|예방|효능|효과|낫|처방|다이어트|면역|질병|질환|콜레스테롤|항산화|디톡스|해독|살\s*빠|약효|건강식|환자/;
+
+  var SEED = [
+    { id: 'seed1', family: '서연이네', recipeId: 'salmon-brown-rice', img: 'img/food/salmon-brown-rice.jpg', tags: ['연어 현미덮밥', '연어', '브로콜리', '한 번에 조리'], desc: '아이 몫은 연어를 잘게 풀어 줬어요.', likes: 24, recs: 9, safe: true },
+    { id: 'seed2', family: '하늘이네', recipeId: 'tofu-bibimbap', img: 'img/food/tofu-lunchbox.jpg', tags: ['두부 채소비빔밥', '두부', '시금치', '달걀 제외'], desc: '달걀은 따로 부쳐서 원하는 사람만 올렸어요.', likes: 31, recs: 12, safe: true },
+    { id: 'seed3', family: '도윤이네', recipeId: 'chicken-veggie-stirfry', img: 'img/food/chicken-veggie-stirfry.jpg', tags: ['닭고기 채소볶음', '닭가슴살', '견과류 제외'], desc: '호두는 어른 그릇에만 뿌렸어요.', likes: 17, recs: 5, safe: true },
+    { id: 'seed4', family: '지우네', recipeId: 'beef-radish-soup', img: 'img/food/beef-radish-soup.jpg', tags: ['소고기 뭇국', '무', '어르신과 함께'], desc: '할아버지 몫은 무를 더 푹 익혔어요.', likes: 12, recs: 4, safe: false }
+  ];
+
+  /* ---------- 선택한 레시피 ---------- */
+  if (!recipe) {
+    $('noRecipe').hidden = false;
+    Array.prototype.forEach.call($('mineArea').querySelectorAll('input,textarea,select,button'), function (n) { n.disabled = true; });
+    $('mineArea').style.opacity = '.55';
+  } else {
+    $('selBox').appendChild(el('img', { src: recipe.img, alt: '' }));
+    $('selBox').appendChild(el('div', null, [el('h2', { text: recipe.name }), el('p', { class: 'small muted', text: '오늘 요리한 레시피 · ' + HS.fmtDate(sel.at) })]));
+  }
+
+  /* ---------- A. 평가·감사 ---------- */
+  var rate = null;
+  function renderRates() {
+    var box = HS.clear($('rates'));
+    RATES.forEach(function (r) { box.appendChild(el('button', { type: 'button', class: 'chip', 'aria-pressed': String(rate === r), onclick: function () { rate = r; renderRates(); }, text: r })); });
+  }
+  renderRates();
+  members.forEach(function (m) { $('to').appendChild(el('option', { value: m.id, text: m.name })); });
+  if (!members.length) $('to').appendChild(el('option', { value: '', text: '가족 구성원 없음' }));
+  PHRASES.forEach(function (p) { $('phrases').appendChild(el('button', { type: 'button', class: 'chip', onclick: function () { $('thanksText').value = p; }, text: p })); });
+
+  function memberById(id) { return members.filter(function (m) { return m.id === id; })[0]; }
+  function renderThanks() {
+    var box = HS.clear($('thanks'));
+    thanks.slice(0, 10).forEach(function (t) {
+      var m = memberById(t.to);
+      box.appendChild(el('div', { class: 'tcard' }, [
+        el('img', { src: HS.charSrc(m ? m.char : '아기'), alt: '' }),
+        el('div', { class: 't' }, [el('small', { text: (m ? m.name + '에게' : '요리한 가족에게') + ' · ' + t.recipeName + ' · ' + t.rate }), t.text]),
+        el('button', { type: 'button', class: 'likeBtn', 'aria-pressed': String(!!t.liked), 'aria-label': '좋아요',
+          onclick: function () { t.liked = !t.liked; t.likes = (t.likes || 0) + (t.liked ? 1 : -1); HS.save('thanks', thanks); renderThanks(); }, text: '♥ ' + (t.likes || 0) })
+      ]));
+    });
+  }
+  renderThanks();
+
+  $('formA').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!recipe) return;
+    if (!rate) { $('rateErr').textContent = '평가를 하나 골라 주세요.'; return; }
+    $('rateErr').textContent = '';
+    var text = $('thanksText').value.trim() || DEFAULT_THANKS;
+    var opinion = $('opinion').value.trim();
+    thanks.unshift({ id: HS.uid(), to: $('to').value, text: text, rate: rate, opinion: opinion, recipeId: recipe.id, recipeName: recipe.name, at: Date.now(), likes: 0 });
+    HS.save('thanks', thanks);
+    renderThanks();
+    HS.toast(text === DEFAULT_THANKS && !$('thanksText').value.trim() ? '기본 감사 문구로 남겼어요' : '감사를 전했어요');
+    suggestAvoid(opinion);
+    $('thanksText').value = ''; $('opinion').value = ''; rate = null; renderRates();
+  });
+
+  // 의견에 레시피 재료가 나오면 기피 후보로 제안 → 사용자가 승인한 경우에만 프로필에 반영
+  function suggestAvoid(opinion) {
+    var box = HS.clear($('suggest'));
+    var hits = recipe.base.filter(function (i) { return opinion.indexOf(i) !== -1; });
+    if (!hits.length || !members.length) { box.hidden = true; return; }
+    var ing = hits[0];
+    var who = members.filter(function (m) { return opinion.indexOf(m.name) !== -1; })[0] || members[0];
+    var pick = el('select', { class: 'select', 'aria-label': '기피 재료를 반영할 가족' });
+    members.forEach(function (m) { var o = el('option', { value: m.id, text: m.name }); if (m === who) o.selected = true; pick.appendChild(o); });
+    box.appendChild(el('div', { class: 'notice hold' }, [el('span', { class: 'ic', text: '💡' }), el('div', { style: 'flex:1' }, [
+      el('p', { text: '의견에 ‘' + ing + '’이(가) 있어요. 다음 추천부터 이 가족의 기피 재료로 참고할까요?' }),
+      el('div', { class: 'row', style: 'margin-top:8px' }, [pick,
+        el('button', { type: 'button', class: 'btn sm primary', text: '반영하기', onclick: function () {
+          var m = memberById(pick.value); if (!m) return;
+          var list = HS.splitList(m.notes);
+          if (list.indexOf(ing) === -1) list.push(ing);
+          m.notes = list.join(', ');
+          HS.save('members', members); box.hidden = true; HS.toast(m.name + ' 프로필에 기피 재료 ‘' + ing + '’을(를) 넣었어요');
+        } }),
+        el('button', { type: 'button', class: 'btn sm', text: '괜찮아요', onclick: function () { box.hidden = true; } })
+      ])
+    ])]));
+    box.hidden = false;
+  }
+
+  /* ---------- B. 기록·공유 ---------- */
+  var photo = null, chosen = [];
+  $('pCam').addEventListener('click', function () { $('inCam').click(); });
+  $('pGal').addEventListener('click', function () { $('inGal').click(); });
+  [$('inCam'), $('inGal')].forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0]; inp.value = '';
+      if (!f || !/^image\//.test(f.type)) return;
+      HS.reencode(f, 900, 0.78).then(function (res) {       // 다시 그려서 GPS 등 메타데이터 제거
+        photo = res.dataUrl; $('photoPrev').src = photo; $('photoPrev').hidden = false;
+        HS.toast('위치 정보를 지운 사진을 준비했어요');
+      }).catch(function () { HS.toast('사진을 읽지 못했어요. 다른 사진을 골라 주세요'); });
+    });
+  });
+
+  function tagOptions() { return recipe ? [recipe.name].concat(recipe.base, ALLOWED_TAGS) : ALLOWED_TAGS; }
+  function renderTags() {
+    var box = HS.clear($('tagChips'));
+    tagOptions().concat(chosen.filter(function (t) { return tagOptions().indexOf(t) === -1; })).forEach(function (t) {
+      box.appendChild(el('button', { type: 'button', class: 'chip', 'aria-pressed': String(chosen.indexOf(t) !== -1), text: '#' + t,
+        onclick: function () { var i = chosen.indexOf(t); if (i === -1) chosen.push(t); else chosen.splice(i, 1); renderTags(); } }));
+    });
+  }
+  renderTags();
+  $('tagAdd').addEventListener('click', function () {
+    var v = $('tagInput').value.trim().replace(/^#/, '');
+    $('tagErr').textContent = '';
+    if (!v) return;
+    if (HEALTH_WORDS.test(v)) { $('tagErr').textContent = '건강 관련 태그는 직접 쓸 수 없어요. 목록에서 골라 주세요.'; return; }
+    if (chosen.indexOf(v) === -1) chosen.push(v);
+    $('tagInput').value = ''; renderTags();
+  });
+
+  $('pSave').addEventListener('click', function () {
+    if (!recipe) return;
+    var desc = $('pDesc').value.trim();
+    $('descErr').textContent = HEALTH_WORDS.test(desc) ? '의료적 효과를 단정하는 표현은 쓸 수 없어요.' : '';
+    if ($('descErr').textContent) return;
+    if (!photo) { HS.toast('요리 사진을 먼저 올려 주세요'); return; }
+    var allergens = [];
+    recipe.base.concat(recipe.season, (recipe.addOn || []).map(function (a) { return a.name; })).forEach(function (i) {
+      (HS.info(i) && HS.info(i).allergens || []).forEach(function (a) { if (allergens.indexOf(a) === -1) allergens.push(a); });
+    });
+    posts.unshift({ id: HS.uid(), mine: true, family: '우리 가족', recipeId: recipe.id, img: photo, tags: chosen.slice(), desc: desc, public: false,
+      likes: 0, recs: 0, safe: HS.checkRecipe(recipe, members).result === 'pass', allergens: allergens, at: Date.now() });
+    if (!HS.save('posts', posts)) { posts.shift(); HS.toast('저장 공간이 부족해요. 예전 기록을 지워 주세요'); return; }
+    photo = null; chosen = []; $('photoPrev').hidden = true; $('pDesc').value = ''; renderTags(); renderMine(); renderFeed();
+    HS.toast('비공개로 저장했어요');
+  });
+
+  var sharing = null;
+  function renderMine() {
+    var box = HS.clear($('mine'));
+    posts.filter(function (p) { return p.mine; }).forEach(function (p) {
+      var r = HS.recipeById(p.recipeId);
+      box.appendChild(el('div', { class: 'm' }, [
+        el('img', { src: p.img, alt: '' }),
+        el('div', { class: 't' }, [(r ? r.name : '요리') + ' ', el('span', { class: 'status-pill' + (p.public ? ' pub' : ''), text: p.public ? '공개' : '비공개' })]),
+        p.public ? el('button', { type: 'button', class: 'btn sm', text: '비공개로', onclick: function () { p.public = false; HS.save('posts', posts); renderMine(); renderFeed(); HS.toast('비공개로 바꿨어요'); } })
+                 : el('button', { type: 'button', class: 'btn sm primary', text: '공유', onclick: function () { sharing = p; $('shAgree').checked = false; $('shErr').textContent = ''; $('shareModal').hidden = false; } }),
+        el('button', { type: 'button', class: 'btn sm danger', text: '삭제', onclick: function () { removePost(p); } })
+      ]));
+    });
+  }
+  function removePost(p) {
+    if (!confirm('이 게시물을 삭제할까요?')) return;
+    posts = posts.filter(function (x) { return x !== p; }); HS.save('posts', posts); renderMine(); renderFeed(); HS.toast('게시물을 삭제했어요');
+  }
+  var modal = $('shareModal');
+  $('shGo').addEventListener('click', function () {
+    if (!$('shAgree').checked) { $('shErr').textContent = '공개에 동의해야 공유할 수 있어요.'; return; }
+    sharing.public = true; sharing.sharedAt = Date.now(); HS.save('posts', posts);
+    modal.hidden = true; renderMine(); renderFeed(); HS.toast('다른 가정에 공유했어요');
+  });
+  modal.addEventListener('click', function (e) { if (e.target === modal || e.target.hasAttribute('data-close')) modal.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hidden = true; });
+
+  /* ---------- C. 피드 ---------- */
+  var exclude = [];
+  HS.ALLERGENS.forEach(function (a) {
+    $('exChips').appendChild(el('button', { type: 'button', class: 'chip red', 'aria-pressed': 'false', text: a, onclick: function () {
+      var i = exclude.indexOf(a); if (i === -1) exclude.push(a); else exclude.splice(i, 1);
+      this.setAttribute('aria-pressed', String(i === -1)); renderFeed();
+    } }));
+  });
+  function allergensOf(p) {
+    if (p.allergens) return p.allergens;
+    var r = HS.recipeById(p.recipeId), out = [];
+    if (r) r.base.concat(r.season, (r.addOn || []).map(function (a) { return a.name; })).forEach(function (i) { (HS.info(i) && HS.info(i).allergens || []).forEach(function (a) { if (out.indexOf(a) === -1) out.push(a); }); });
+    return out;
+  }
+  function toggle(p, key) {
+    var st = reacts[p.id] || (reacts[p.id] = {});
+    st[key] = !st[key];
+    HS.save('reacts', reacts); renderFeed();
+  }
+  function renderFeed() {
+    var feed = HS.clear($('feed')), n = 0;
+    $('exHint').hidden = !exclude.length;
+    posts.filter(function (p) { return p.mine && p.public; }).concat(SEED).forEach(function (p) {
+      if (exclude.length && (!p.safe || allergensOf(p).some(function (a) { return exclude.indexOf(a) !== -1; }))) return;
+      var r = HS.recipeById(p.recipeId), st = reacts[p.id] || {};
+      var tags = el('div', { class: 'tags' });
+      (p.tags || []).forEach(function (t) { tags.appendChild(el('span', { class: 'tag', text: '#' + t })); });
+      var acts = el('div', { class: 'acts' }, [
+        el('button', { type: 'button', class: 'likeBtn', 'aria-pressed': String(!!st.like), text: '♥ 좋아요 ' + (p.likes + (st.like ? 1 : 0)), onclick: function () { toggle(p, 'like'); } }),
+        el('button', { type: 'button', class: 'likeBtn', 'aria-pressed': String(!!st.rec), text: '👍 추천 ' + (p.recs + (st.rec ? 1 : 0)), onclick: function () { toggle(p, 'rec'); } }),
+        p.mine ? el('button', { type: 'button', class: 'btn sm danger', text: '삭제', onclick: function () { removePost(p); } })
+               : el('button', { type: 'button', class: 'btn sm ghost', text: '신고', onclick: function () { report(p); } })
+      ]);
+      feed.appendChild(el('article', { class: 'card post' }, [
+        el('img', { src: p.img, alt: (r ? r.name : '요리') + ' 사진', loading: 'lazy' }),
+        el('div', { class: 'pb' }, [
+          el('p', { class: 'who', text: p.family + (p.mine ? ' (내 게시물)' : '') }),
+          el('h3', { text: r ? r.name : '요리' }),
+          tags,
+          p.desc ? el('p', { class: 'desc', text: p.desc }) : null,
+          acts,
+          el('p', { class: 'foot', text: '참고용이며 성분표를 꼭 확인하세요 / AI가 생성한 레시피입니다' })
+        ])
+      ]));
+      n++;
+    });
+    $('feedEmpty').hidden = n > 0;
+  }
+  function report(p) {
+    var why = prompt('신고 사유를 적어 주세요 (예: 부적절한 사진, 잘못된 정보)');
+    if (why == null) return;
+    var reps = HS.load('reports', []);
+    reps.push({ postId: p.id, reason: why.trim().slice(0, 100), at: Date.now(), status: '접수' });   // 운영자 확인·처리 이력
+    HS.save('reports', reps);
+    HS.toast('신고가 접수됐어요. 운영자가 확인 후 처리할게요');
+  }
+
+  renderMine(); renderFeed();
+})();
+</script>
+</body>
+</html>

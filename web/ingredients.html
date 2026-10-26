@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>식재료 등록 · 온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .seg3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--cream); border: 1px solid var(--line); border-radius: 18px; padding: 4px; margin-bottom: 14px; }
+  .seg3 button { min-height: 48px; border: 0; border-radius: 14px; background: none; font-weight: 800; font-size: 14px; cursor: pointer; color: var(--muted); }
+  .seg3 button[aria-selected="true"] { background: #fff; color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  .drop { border: 2px dashed #e6cfb2; border-radius: 20px; background: #fffdf9; padding: 22px 16px; text-align: center; }
+  .drop .big { font-size: 40px; line-height: 1; }
+  .drop p { margin-top: 8px; font-size: 14px; color: var(--ink-soft); font-weight: 600; }
+  .drop .actions { justify-content: center; }
+  .preview { position: relative; margin-top: 12px; border-radius: 16px; overflow: hidden; max-height: 220px; }
+  .preview img { width: 100%; max-height: 220px; object-fit: cover; }
+  .preview .scan { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(59,36,24,.55); color: #fff; font-weight: 800; }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .list .item.bad, .list .item.suspect { grid-column: 1 / -1; }
+  .item { display: flex; align-items: center; gap: 6px; padding: 2px 4px 2px 12px; border: 1.5px solid var(--line); border-radius: 16px; background: #fff; flex-wrap: wrap; }
+  .item input { flex: 1 1 60px; min-width: 0; min-height: 40px; border: 0; background: transparent; font-size: 15px; font-weight: 700; outline: none; }
+  .item input:focus { background: var(--cream); border-radius: 10px; padding: 0 8px; }
+  .item.bad { border-color: var(--danger); background: var(--danger-soft); }
+  .item.bad input { color: var(--danger); }
+  .item .msg { flex-basis: 100%; font-size: 12.5px; font-weight: 700; padding: 0 0 4px; }
+  .item.bad .msg { color: var(--danger); }
+  .item.suspect { border-style: dashed; border-color: #e0b04c; background: var(--hold-soft); }
+  .item.suspect .msg { color: #6b4c00; }
+  .src { font-size: 11px; font-weight: 800; color: var(--muted); background: var(--cream); padding: 2px 8px; border-radius: 999px; }
+  .add-row { display: flex; gap: 8px; margin-top: 12px; }
+  .add-row .input { flex: 1; }
+  .count { font-size: 13px; font-weight: 800; color: var(--ink-soft); }
+  @media (min-width: 900px) { .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; } }
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+
+<main class="page">
+  <div class="page-head">
+    <span class="step">3단계 · 식재료 등록</span>
+    <h1>냉장고에 뭐가 있나요?</h1>
+    <p>사진·영수증·직접 입력으로 재료를 모으고, 확인한 재료만 등록해요. 수량은 적지 않아도 돼요.</p>
+  </div>
+
+  <div class="layout">
+    <section class="card" aria-label="입력 방식">
+      <div class="seg3" role="tablist">
+        <button type="button" role="tab" data-mode="fridge" aria-selected="true">🧊 냉장고 사진</button>
+        <button type="button" role="tab" data-mode="receipt" aria-selected="false">🧾 영수증 사진</button>
+        <button type="button" role="tab" data-mode="manual" aria-selected="false">✏️ 직접 입력</button>
+      </div>
+
+      <div id="uploadArea">
+        <div class="drop">
+          <div class="big" id="dropIc" aria-hidden="true">🧊</div>
+          <p id="dropText">냉장고 안이 잘 보이게 찍어 주세요.</p>
+          <div class="actions">
+            <button class="btn primary" type="button" id="camBtn">📷 촬영하기</button>
+            <button class="btn" type="button" id="galBtn">🖼 앨범에서 선택</button>
+          </div>
+        </div>
+        <div class="preview" id="preview" hidden><img id="previewImg" alt="올린 사진 미리보기"><div class="scan" id="scan">재료를 찾고 있어요…</div></div>
+        <div class="notice hold" id="failMsg" style="margin-top:12px" hidden>
+          <span class="ic" aria-hidden="true">📸</span>
+          <span>사진이 흐리거나 작아서 재료를 찾지 못했어요. 밝은 곳에서 다시 찍거나, <button class="link" type="button" id="toManual" style="background:none;border:0;padding:0;font-weight:800;text-decoration:underline;cursor:pointer">직접 입력</button>으로 추가해 주세요.</span>
+        </div>
+      </div>
+
+      <div class="notice" style="margin-top:14px">
+        <span class="ic" aria-hidden="true">🔒</span>
+        <span>사진 원본은 저장하지 않고, 확인한 식재료명만 저장합니다. 영수증은 신선식품만 추출하고 구매 장소·가격·카드번호는 저장하지 않습니다. 가공식품·양념은 재고에서 제외됩니다.</span>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="resTitle">
+      <div class="row">
+        <h2 id="resTitle" style="margin:0">확인할 재료</h2><span class="spacer"></span><span class="count" id="count"></span>
+      </div>
+      <p class="hint" style="margin-bottom:12px">이름이 틀리면 눌러서 고치고, 필요 없는 재료는 ✕로 지워요.</p>
+      <div class="notice" id="resultMsg" hidden style="margin-bottom:10px"><span class="ic" aria-hidden="true">✅</span><span id="resultText"></span></div>
+      <ul class="list" id="list"></ul>
+      <p class="empty" id="empty">아직 재료가 없어요. 사진을 올리거나 직접 입력해 주세요.</p>
+
+      <form class="add-row" id="addForm">
+        <label class="sr-only" for="addInput">재료 이름</label>
+        <input class="input" id="addInput" maxlength="12" autocomplete="off" placeholder="빠진 재료 추가 (예: 버섯)">
+        <button class="btn dark" type="submit">추가</button>
+      </form>
+      <p class="err" id="addErr"></p>
+
+      <div class="actions">
+        <button class="btn primary block" type="button" id="confirm">확인한 재료로 레시피 추천받기</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<nav id="tabbar"></nav>
+<input type="file" id="inCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="inGal" accept="image/*" hidden>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  var $ = HS.$, el = HS.el;
+  HS.mount('ingredients');
+
+  var members = HS.load('members', []);
+  var items = HS.load('pantry', []).map(function (n) { return { id: HS.uid(), name: n, src: '등록됨' }; });
+  var mode = 'fridge';
+
+  /* 샘플 인식 결과 (사진 인식 연동 전) */
+  var MOCK = {
+    fridge: { found: ['두부', '애호박', '양파', '당근', '대파', '달걀'], suspect: ['새우'], dropped: ['케첩', '마요네즈'] },
+    receipt: { found: ['소고기', '무', '시금치', '버섯', '브로콜리'], suspect: [], dropped: ['햄', '간장', '라면'] }
+  };
+
+  /* ---------- 입력 방식 탭 ---------- */
+  var TEXT = { fridge: ['🧊', '냉장고 안이 잘 보이게 찍어 주세요.'], receipt: ['🧾', '영수증 전체가 나오게 펴서 찍어 주세요.'] };
+  Array.prototype.forEach.call(document.querySelectorAll('.seg3 button'), function (b) {
+    b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); });
+  });
+  function setMode(m) {
+    mode = m;
+    Array.prototype.forEach.call(document.querySelectorAll('.seg3 button'), function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-mode') === m)); });
+    $('uploadArea').hidden = m === 'manual';
+    if (m === 'manual') { $('addInput').focus(); return; }
+    $('dropIc').textContent = TEXT[m][0]; $('dropText').textContent = TEXT[m][1];
+  }
+  $('toManual').addEventListener('click', function () { setMode('manual'); });
+
+  /* ---------- 사진 → 인식 (원본은 메모리에서만 쓰고 버려요) ---------- */
+  $('camBtn').addEventListener('click', function () { $('inCam').click(); });
+  $('galBtn').addEventListener('click', function () { $('inGal').click(); });
+  [$('inCam'), $('inGal')].forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0]; inp.value = '';
+      if (!f) return;
+      if (!/^image\//.test(f.type)) { HS.toast('사진 파일만 올릴 수 있어요'); return; }
+      recognize(f);
+    });
+  });
+  function recognize(file) {
+    var url = URL.createObjectURL(file), img = new Image();
+    $('failMsg').hidden = true; $('preview').hidden = false; $('scan').hidden = false;
+    $('previewImg').src = url;
+    img.onload = function () {
+      var lowQuality = Math.min(img.naturalWidth, img.naturalHeight) < 300;
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+        $('preview').hidden = true; $('previewImg').removeAttribute('src');   // 원본 미저장
+        if (lowQuality) { $('failMsg').hidden = false; return; }
+        var r = MOCK[mode], added = 0;
+        r.found.forEach(function (n) { if (addItem(n, mode === 'fridge' ? '냉장고' : '영수증', false, true)) added++; });
+        r.suspect.forEach(function (n) { if (addItem(n, '냉장고', true, true)) added++; });
+        var msg = '재료 ' + added + '개를 찾았어요.';
+        if (r.dropped.length) msg += ' 가공식품·양념 ' + r.dropped.length + '개(' + r.dropped.join(', ') + ')는 재고에서 제외했어요.';
+        if (mode === 'receipt') msg += ' 구매 장소·가격·카드번호는 읽지 않았어요.';
+        $('resultText').textContent = msg; $('resultMsg').hidden = false;
+        render();
+      }, 1100);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); $('preview').hidden = true; $('failMsg').hidden = false; };
+    img.src = url;
+  }
+
+  /* ---------- 재료 목록 ---------- */
+  function forbiddenFor(name) {        // 이 재료에 알레르기가 있는 구성원
+    var who = [];
+    members.forEach(function (m) { HS.allergiesOf(m).forEach(function (a) { if (HS.hitsAllergy(name, a) === true && who.indexOf(m.name) === -1) who.push(m.name); }); });
+    return who;
+  }
+  function addItem(raw, src, suspect, quiet) {
+    var name = HS.norm(raw);
+    if (!name) return false;
+    if (!HS.isStock(name)) { if (!quiet) $('addErr').textContent = name + '은(는) 가공식품·양념이라 재고에서 제외돼요.'; return false; }
+    if (items.some(function (i) { return i.name === name; })) { if (!quiet) $('addErr').textContent = '이미 목록에 있는 재료예요.'; return false; }
+    if (items.length >= 40) { if (!quiet) $('addErr').textContent = '재료는 40개까지 등록할 수 있어요.'; return false; }
+    items.push({ id: HS.uid(), name: name, src: src, suspect: !!suspect });
+    return true;
+  }
+  function render() {
+    var ul = HS.clear($('list'));
+    items.forEach(function (it) {
+      var bad = forbiddenFor(it.name);
+      var li = el('li', { class: 'item' + (bad.length ? ' bad' : '') + (it.suspect ? ' suspect' : '') });
+      var inp = el('input', { value: it.name, 'aria-label': '재료 이름 고치기', maxlength: 12 });
+      inp.addEventListener('change', function () {
+        var n = HS.norm(inp.value);
+        if (!n) { inp.value = it.name; return; }
+        if (!HS.isStock(n)) { HS.toast(n + '은(는) 가공식품·양념이라 재고에서 제외했어요'); items = items.filter(function (x) { return x !== it; }); render(); return; }
+        if (items.some(function (x) { return x !== it && x.name === n; })) { HS.toast('이미 있는 재료라 하나로 합쳤어요'); items = items.filter(function (x) { return x !== it; }); render(); return; }
+        it.name = n; render();
+      });
+      li.appendChild(el('span', { 'aria-hidden': 'true', text: bad.length ? '⚠' : (it.suspect ? '❓' : '🥬') }));
+      li.appendChild(inp);
+      li.appendChild(el('span', { class: 'src', text: it.src }));
+      if (it.suspect) {
+        li.appendChild(el('button', { type: 'button', class: 'btn sm', onclick: function () { it.suspect = false; render(); HS.toast(it.name + ' 맞는 걸로 확인했어요'); }, text: '맞아요' }));
+        li.appendChild(el('button', { type: 'button', class: 'btn sm', onclick: function () { items = items.filter(function (x) { return x !== it; }); render(); }, text: '아니에요' }));
+      } else {
+        li.appendChild(el('button', { type: 'button', class: 'icon-btn', 'aria-label': it.name + ' 삭제', onclick: function () { items = items.filter(function (x) { return x !== it; }); render(); }, text: '✕' }));
+      }
+      var msgs = [];
+      if (it.suspect) msgs.push('사진에서 ' + it.name + '처럼 보여요. 맞는지 확인해 주세요.' + (bad.length ? '' : ''));
+      if (bad.length) msgs.push('⚠ ' + bad.join('·') + ' 님의 알레르기 재료' + (it.suspect ? '일 수 있어요' : '예요') + '. 레시피에서 제외됩니다.');
+      if (msgs.length) li.appendChild(el('p', { class: 'msg', text: msgs.join(' ') }));
+      ul.appendChild(li);
+    });
+    $('empty').hidden = items.length > 0;
+    var pending = items.filter(function (i) { return i.suspect; }).length;
+    $('count').textContent = items.length + '개' + (pending ? ' · 확인 필요 ' + pending : '');
+  }
+
+  $('addForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    $('addErr').textContent = '';
+    var v = $('addInput').value;
+    if (!v.trim()) { $('addErr').textContent = '재료 이름을 입력해 주세요.'; return; }
+    if (addItem(v, '직접 입력', false, false)) { $('addInput').value = ''; render(); }
+  });
+
+  /* ---------- 확정 ---------- */
+  $('confirm').addEventListener('click', function () {
+    var pending = items.filter(function (i) { return i.suspect; });
+    var ok = items.filter(function (i) { return !i.suspect; });
+    if (!ok.length && !pending.length) { HS.toast('재료를 한 개 이상 등록해 주세요'); return; }
+    if (pending.length && !confirm('아직 확인하지 않은 재료가 ' + pending.length + '개 있어요 (' + pending.map(function (i) { return i.name; }).join(', ') + ').\n확인하지 않은 재료는 등록하지 않아요. 계속할까요?')) return;
+    HS.save('pantry', ok.map(function (i) { return i.name; }));
+    HS.save('pantryMeta', { unconfirmed: pending.length > 0, at: Date.now() });
+    HS.remove('shown');
+    location.href = 'recipes.html';
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

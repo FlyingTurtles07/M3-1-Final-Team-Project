@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>온가족 한상</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  .hero { display: grid; gap: 20px; align-items: center; padding: 8px 0 24px; }
+  .hero-copy h1 { font-size: 30px; font-weight: 800; line-height: 1.25; }
+  .hero-copy h1 em { font-style: normal; color: var(--accent); }
+  .hero-copy p { margin-top: 12px; color: var(--ink-soft); font-size: 15px; max-width: 460px; }
+  .hero-img { position: relative; border-radius: 28px; overflow: hidden; aspect-ratio: 4 / 3; box-shadow: var(--shadow); }
+  .hero-img img { width: 100%; height: 100%; object-fit: cover; }
+  .hero-img .family { position: absolute; left: 12px; bottom: 12px; display: flex; background: rgba(255,255,255,.92); padding: 6px 10px; border-radius: 999px; gap: 2px; align-items: center; font-size: 12.5px; font-weight: 800; }
+  .hero-img .family img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: var(--accent-soft); margin-left: -6px; border: 2px solid #fff; }
+  .hero-img .family img:first-child { margin-left: 0; }
+  .hero-img .family span { margin-left: 6px; }
+  .features { display: grid; gap: 12px; margin-bottom: 24px; }
+  .feature { display: flex; gap: 14px; align-items: flex-start; }
+  .feature .ic { flex: none; width: 48px; height: 48px; border-radius: 16px; background: var(--accent-soft); display: grid; place-items: center; font-size: 24px; }
+  .feature h2 { font-size: 16px; margin-bottom: 4px; }
+  .feature p { font-size: 13.5px; color: var(--ink-soft); }
+  .auth { max-width: 480px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--cream); border-radius: 999px; padding: 4px; margin-bottom: 18px; border: 1px solid var(--line); }
+  .seg button { min-height: 44px; border: 0; background: none; border-radius: 999px; font-weight: 800; cursor: pointer; color: var(--muted); }
+  .seg button[aria-selected="true"] { background: #fff; color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  .link { background: none; border: 0; padding: 0; color: var(--ink-soft); font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+  .browse { margin-top: 14px; text-align: center; }
+  .continue { margin-bottom: 14px; }
+  @media (min-width: 900px) {
+    .hero { grid-template-columns: 1.05fr 1fr; gap: 40px; padding: 16px 0 32px; }
+    .hero-copy h1 { font-size: 44px; }
+    .bottom { display: grid; grid-template-columns: 1fr 480px; gap: 32px; align-items: start; }
+  }
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+
+<main class="page">
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="step">AI 가족 식단 도우미</span>
+      <h1>한 번의 조리로,<br><em>온 가족의 한 상</em></h1>
+      <p>알레르기·식감·건강 조건이 달라도 하나의 요리로 차려요. 공통 요리를 한 번 만들고, 마지막에 양념·곁들임·분량만 가족마다 조절해요.</p>
+    </div>
+    <div class="hero-img">
+      <img src="img/food/tofu-bibimbap.jpg" alt="두부 채소비빔밥 한 상">
+      <div class="family" aria-hidden="true">
+        <img src="img/characters/dad.png" alt="">
+        <img src="img/characters/mom1.png" alt="">
+        <img src="img/characters/younger_brother.png" alt="">
+        <img src="img/characters/grandma.png" alt="">
+        <span>4명이 한 상에</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="bottom">
+    <section class="features" aria-label="핵심 기능">
+      <article class="card feature">
+        <div class="ic" aria-hidden="true">🍲</div>
+        <div>
+          <h2>가족 공통 요리 + 맞춤 변형</h2>
+          <p>알레르기 재료는 처음부터 빼고 공통 요리를 만들어요. 저염식·어린이·어르신 몫은 마지막 단계에서 덜어내고, 양념과 식감만 바꿔요.</p>
+        </div>
+      </article>
+      <article class="card feature">
+        <div class="ic" aria-hidden="true">📷</div>
+        <div>
+          <h2>사진·영수증으로 식재료 인식</h2>
+          <p>냉장고 사진이나 영수증을 찍으면 재료를 찾아드려요. 사진 원본은 저장하지 않고, 확인한 식재료 이름만 남겨요.</p>
+        </div>
+      </article>
+      <div class="notice">
+        <span class="ic" aria-hidden="true">🔒</span>
+        <span>건강 정보는 가족 프로필 입력 단계에서 별도 동의를 받고 암호화해 보관합니다.</span>
+      </div>
+    </section>
+
+    <section class="card auth" id="auth" aria-label="로그인 또는 회원가입">
+      <div class="continue" id="continue" hidden>
+        <div class="notice"><span class="ic" aria-hidden="true">👋</span><span id="contText"></span></div>
+        <div class="actions"><a class="btn primary" href="family.html">이어서 하기</a><button class="btn" type="button" id="logout">로그아웃</button></div>
+      </div>
+
+      <div class="seg" role="tablist">
+        <button type="button" role="tab" id="tabLogin" aria-selected="true" aria-controls="formLogin">로그인</button>
+        <button type="button" role="tab" id="tabSignup" aria-selected="false" aria-controls="formSignup">회원가입</button>
+      </div>
+
+      <form id="formLogin" novalidate>
+        <div class="field">
+          <label class="label" for="lEmail">이메일</label>
+          <input class="input" id="lEmail" type="email" autocomplete="email" placeholder="name@example.com">
+          <p class="err" id="lEmailErr"></p>
+        </div>
+        <div class="field">
+          <label class="label" for="lPw">비밀번호</label>
+          <input class="input" id="lPw" type="password" autocomplete="current-password" placeholder="8자 이상">
+          <p class="err" id="lPwErr"></p>
+        </div>
+        <div class="row" style="margin-top:10px"><span class="spacer"></span><button class="link" type="button" id="findPw">비밀번호 찾기</button></div>
+        <div class="actions"><button class="btn primary block" type="submit">로그인</button></div>
+      </form>
+
+      <form id="formSignup" novalidate hidden>
+        <div class="field">
+          <label class="label" for="sEmail">이메일<span class="req">*</span></label>
+          <input class="input" id="sEmail" type="email" autocomplete="email" placeholder="name@example.com">
+          <p class="err" id="sEmailErr"></p>
+        </div>
+        <div class="field">
+          <label class="label" for="sPw">비밀번호<span class="req">*</span></label>
+          <input class="input" id="sPw" type="password" autocomplete="new-password" placeholder="영문·숫자 포함 8자 이상">
+          <p class="err" id="sPwErr"></p>
+        </div>
+        <div class="field">
+          <label class="label" for="sPw2">비밀번호 확인<span class="req">*</span></label>
+          <input class="input" id="sPw2" type="password" autocomplete="new-password" placeholder="한 번 더 입력">
+          <p class="err" id="sPw2Err"></p>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="sAgree"><span>(필수) 개인정보 수집·이용에 동의합니다. <button class="link" type="button" id="viewTerms">약관 보기</button></span></label>
+          <p class="err" id="sAgreeErr"></p>
+        </div>
+        <div class="actions"><button class="btn primary block" type="submit">가입하고 가족 등록하기</button></div>
+      </form>
+
+      <div class="browse">
+        <a class="btn ghost" href="family.html" id="browse">가입 없이 둘러보기 →</a>
+      </div>
+    </section>
+  </div>
+  <p class="disclaimer">AI가 생성한 레시피는 참고용이며, 성분표를 꼭 확인하세요. · 현재는 AI 연동 전 샘플 데이터로 동작해요.</p>
+</main>
+
+<nav id="tabbar"></nav>
+
+<div class="modal" id="terms" hidden role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+  <div class="modal-box">
+    <h2 id="termsTitle">개인정보 수집·이용 안내</h2>
+    <p class="small" style="line-height:1.7">
+      · 수집 항목: 이메일, 비밀번호(암호화 저장)<br>
+      · 이용 목적: 회원 식별, 서비스 제공, 문의 응대<br>
+      · 보관 기간: 회원 탈퇴 시 즉시 삭제<br>
+      · 건강 정보(알레르기·식사 조건)는 가족 프로필 단계에서 별도로 동의를 받아요.<br>
+      · 동의하지 않을 권리가 있으나, 동의하지 않으면 가입할 수 없어요.
+    </p>
+    <div class="actions"><button class="btn primary" type="button" data-close>확인</button></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  var $ = HS.$;
+  HS.mount('home');
+
+  /* 로그인 상태 */
+  function refresh() {
+    var s = HS.session();
+    $('continue').hidden = !s;
+    if (s) $('contText').textContent = s.guest ? '둘러보기 중이에요. 이어서 확인하거나, 가입해서 우리 가족 정보로 시작하세요.' : s.email + ' 님, 다시 오셨네요.';
+  }
+  refresh();
+  $('logout').addEventListener('click', function () { HS.remove('session'); refresh(); HS.toast('로그아웃했어요'); });
+
+  /* 탭 전환 */
+  function setTab(signup) {
+    $('tabLogin').setAttribute('aria-selected', String(!signup));
+    $('tabSignup').setAttribute('aria-selected', String(signup));
+    $('formLogin').hidden = signup; $('formSignup').hidden = !signup;
+  }
+  $('tabLogin').addEventListener('click', function () { setTab(false); });
+  $('tabSignup').addEventListener('click', function () { setTab(true); });
+  if (location.hash === '#signup') setTab(true);
+
+  /* 검증 */
+  var EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  function err(id, msg) { $(id + 'Err').textContent = msg || ''; var i = $(id); if (i && i.classList) i.classList.toggle('invalid', !!msg); return !msg; }
+
+  $('formLogin').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = $('lEmail').value.trim(), pw = $('lPw').value;
+    var ok = err('lEmail', !email ? '이메일을 입력해 주세요.' : (!EMAIL.test(email) ? '이메일 형식이 올바르지 않아요.' : ''));
+    ok = err('lPw', !pw ? '비밀번호를 입력해 주세요.' : (pw.length < 8 ? '비밀번호는 8자 이상이에요.' : '')) && ok;
+    if (!ok) return;
+    // 샘플 단계: 서버 인증 대신 세션만 만들어요. 비밀번호는 저장하지 않아요.
+    HS.save('session', { email: email, at: Date.now() });
+    location.href = HS.load('members', []).length ? 'ingredients.html' : 'family.html';
+  });
+
+  $('formSignup').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = $('sEmail').value.trim(), pw = $('sPw').value, pw2 = $('sPw2').value;
+    var ok = err('sEmail', !email ? '이메일을 입력해 주세요.' : (!EMAIL.test(email) ? '이메일 형식이 올바르지 않아요.' : ''));
+    ok = err('sPw', pw.length < 8 || !/[A-Za-z]/.test(pw) || !/\d/.test(pw) ? '영문과 숫자를 포함해 8자 이상 입력해 주세요.' : '') && ok;
+    ok = err('sPw2', pw2 !== pw || !pw2 ? '비밀번호가 일치하지 않아요.' : '') && ok;
+    ok = err('sAgree', $('sAgree').checked ? '' : '개인정보 수집·이용에 동의해야 가입할 수 있어요.') && ok;
+    if (!ok) return;
+    var prev = HS.session();
+    if (prev && prev.guest) { HS.remove('members'); HS.remove('pantry'); }   // 둘러보기 샘플은 비워요
+    HS.save('session', { email: email, at: Date.now(), agreedAt: Date.now() });
+    location.href = 'family.html';
+  });
+
+  $('browse').addEventListener('click', function () { if (!HS.session()) HS.startGuest(); });
+  $('findPw').addEventListener('click', function () { HS.toast('가입한 이메일로 재설정 링크를 보내드려요 (준비 중)'); });
+
+  var terms = $('terms');
+  $('viewTerms').addEventListener('click', function () { terms.hidden = false; terms.querySelector('[data-close]').focus(); });
+  terms.addEventListener('click', function (e) { if (e.target === terms || e.target.hasAttribute('data-close')) terms.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') terms.hidden = true; });
+})();
+</script>
+</body>
+</html>
