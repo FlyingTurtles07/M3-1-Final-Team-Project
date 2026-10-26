@@ -1,7 +1,8 @@
 """레시피 안전 검사: 알레르기 · 당뇨식 · 저염식.
 
 판정
-- pass(통과): 가족 알레르기 성분이 없고, 당뇨식·저염식 가족이 있으면 1인분 당류·나트륨이 기준 이하
+- pass(통과): 가족 알레르기 성분이 없고, 저염식 가족이 있으면 1인분 나트륨이 기준 이하
+  * 당뇨식 가족이 있으면 기준값 확정 전이라 항상 hold (레시피 추천 정책 DM-01·DM-04)
 - hold(확인 필요): 알레르기 성분이 들어 있거나(분기점에서 따로 덜어야 해요), 기준을 넘거나, 수치를 확인할 수 없음
   * 유동식·이유식은 자동 검증 범위 밖이라 전문가 확인 전까지 hold
 화면에는 판정 결과에 맞는 문구만 보여주고, 자세한 사유(reasons)는 운영 기록용이에요.
@@ -65,8 +66,8 @@ MFDS_NAMES = {
 # 식약처에 당류 값이 비어 있지만 0으로 봐도 되는 항목 (고기·생선) [검토]
 MFDS_SUGAR_ZERO = {"연어, 생것"}
 LIMITS = {
-    "sodium_mg_per_serving": float(os.getenv("LIMIT_SODIUM_MG", "800")),   # 저염식 1인분 나트륨 한도 (임시)
-    "sugar_g_per_serving": float(os.getenv("LIMIT_SUGAR_G", "10")),        # 당뇨식 1인분 당류 한도 (임시)
+    "sodium_mg_per_serving": float(os.getenv("LIMIT_SODIUM_MG", "770")),   # 저염식 1인분(한 끼) 나트륨 한도: 하루 2,300mg의 1/3 (NA-02, 임시값)
+    # 당뇨식 당류·탄수화물 기준값은 전문가 확정 전이라 두지 않아요 (DM-01: 수치로 통과 판정하지 않고 확인 필요)
 }
 MFDS_API_KEY = os.getenv("MFDS_API_KEY", "")
 MFDS_API_URL = os.getenv("MFDS_API_URL", "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo03/getFoodNtrCpntDbInq03")
@@ -277,8 +278,8 @@ async def check_recipe(recipe: dict, members: list[dict]) -> dict:
             hold("수치 없음: " + ", ".join(missing))
         if "저염식" in conds and sodium / servings > LIMITS["sodium_mg_per_serving"]:
             hold(f"1인분 나트륨 {sodium / servings:.0f}mg")
-        if "당뇨식" in conds and sugar / servings > LIMITS["sugar_g_per_serving"]:
-            hold(f"1인분 당류 {sugar / servings:.1f}g")
+        if "당뇨식" in conds:   # 기준값 보류 중이라 수치와 상관없이 확인 필요 (계산값은 기록용)
+            hold(f"당뇨식 기준값 확정 전 (1인분 당류 {sugar / servings:.1f}g)")
     return {"result": result, "allergyHits": hits, "reasons": reasons}
 
 

@@ -1,7 +1,7 @@
 """레시피 추천.
 
-- 추천은 가족 조건과 상관없이 '냉장고 재료'만으로 3개를 골라요.
-  (가족 알레르기·식사 조건은 화면에서 고른 레시피의 '분기점'으로 안내해요)
+- 추천은 '냉장고 재료'로 3개를 골라요. AI 추천에는 가족 전체의 알레르기·식사 조건과 해당 정책(policies.py)을 함께 넣어요.
+  (이름·나이는 보내지 않아요. 구성원별 차이는 화면에서 고른 레시피의 '분기점'으로 안내해요)
 - OPENAI_API_KEY가 있으면 AI가 레시피를 만들고, 없거나 실패하면 기본 레시피(data/recipes.json)에서 골라요.
 - 레시피 형식: ing(재료 [이름, 양, 무게]) / sauce(양념) / steps(만드는법) / adds(단계별로 들어가는 재료) / saltAt(간하는 단계)
 """
@@ -152,13 +152,15 @@ def parse_json(text: str) -> dict:
         return {}
 
 
-async def ai_recommend(ingredients: list[str], exclude_titles: list[str], count: int = 3, notes: str = "") -> list[dict]:
+async def ai_recommend(ingredients: list[str], exclude_titles: list[str], count: int = 3, notes: str = "", rules: str = "") -> list[dict]:
     if not os.getenv("OPENAI_API_KEY"):
         return []
     from openai import AsyncOpenAI
     client = AsyncOpenAI(timeout=float(os.getenv("OPENAI_TIMEOUT", "40")), max_retries=0)
     prompt = PROMPT.format(ingredients=", ".join(ingredients) or "(없음)", exclude=", ".join(exclude_titles) or "(없음)", count=count,
                            notes=("\n" + notes) if notes else "(없음)")
+    if rules:   # 레시피 추천 정책(policies.py)은 JSON 형식 안내 바로 앞에 넣어요
+        prompt = prompt.replace("\n\nJSON만 답해:", "\n\n" + rules + "\n\nJSON만 답해:", 1)
     # 첫 모델이 실패하거나 쓸 만한 레시피를 못 주면 다음 모델로 한 번 더 시도해요
     models = [OPENAI_MODEL] + [m.strip() for m in os.getenv("OPENAI_FALLBACK_MODELS", "gemini-3.1-flash-lite").split(",") if m.strip() and m.strip() != OPENAI_MODEL]
     for model in models:

@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 import fstore  # noqa: E402
 import images  # noqa: E402
+import policies  # noqa: E402
 import recipes  # noqa: E402
 import safety  # noqa: E402
 import vision  # noqa: E402
@@ -576,7 +577,7 @@ class RecommendReq(BaseModel):
     ingredients: list[str] = Field(default_factory=list)
     excludeIds: list[str] = Field(default_factory=list)
     excludeTitles: list[str] = Field(default_factory=list)
-    members: list[Member] = Field(default_factory=list)   # 추천에는 쓰지 않고 안전 검사에만 써요
+    members: list[Member] = Field(default_factory=list)   # 안전 검사 + AI 추천 정책(알레르기·식사 조건만, 이름·나이 제외)
     count: int = 3
 
 
@@ -591,13 +592,18 @@ async def recommend(req: RecommendReq, uid: int | None = Depends(optional_user))
             notes = await run_in_threadpool(taste_notes, uid)
         except Exception:
             log.exception("가족 반응을 불러오지 못했어요")
-    picked = await recipes.ai_recommend(ingredients, req.excludeTitles, count, notes)
+    members = [m.model_dump() for m in req.members]
+    rules = ""
+    try:
+        rules = await run_in_threadpool(policies.prompt_block, members)
+    except Exception:
+        log.exception("레시피 추천 정책을 불러오지 못했어요")
+    picked = await recipes.ai_recommend(ingredients, req.excludeTitles, count, notes, rules)
     if len(picked) < count:
         exclude = list(req.excludeIds) + [r["id"] for r in picked]
         for r in recipes.rank_pool(ingredients, exclude, count):
             if len(picked) < count and r["title"] not in req.excludeTitles:
                 picked.append(r)
-    members = [m.model_dump() for m in req.members]
     for r in picked:
         r["safety"] = await safety.check_recipe(r, members)
     return {"recipes": picked}
